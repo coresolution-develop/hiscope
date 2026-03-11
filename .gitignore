@@ -28,3 +28,6 @@ out/
 
 # Local agent config
 .claude/
+
+# Local JDK for Gradle wrapper fallback
+.local-jdks/

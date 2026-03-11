@@ -3,6 +3,7 @@ package com.hiscope.evaluation.domain.upload.handler;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.util.ExcelUtils;
+import com.hiscope.evaluation.config.properties.UploadPolicyProperties;
 import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
 import com.hiscope.evaluation.domain.upload.dto.UploadError;
@@ -30,6 +31,7 @@ import java.util.*;
 public class DepartmentUploadHandler {
 
     private final DepartmentRepository departmentRepository;
+    private final UploadPolicyProperties uploadPolicyProperties;
 
     @Transactional
     public UploadResult handle(Long orgId, MultipartFile file) {
@@ -52,6 +54,7 @@ public class DepartmentUploadHandler {
                 Row row = sheet.getRow(i);
                 if (ExcelUtils.isRowEmpty(row, 2)) continue;
                 totalRows++;
+                validateMaxRows(totalRows);
 
                 String code = ExcelUtils.getCellString(row, 0).toUpperCase();
                 String name = ExcelUtils.getCellString(row, 1);
@@ -107,5 +110,14 @@ public class DepartmentUploadHandler {
         if (errors.isEmpty()) return UploadResult.success("DEPARTMENT", fileName, totalRows);
         if (successRows > 0) return UploadResult.partial("DEPARTMENT", fileName, totalRows, successRows, errors);
         return UploadResult.failed("DEPARTMENT", fileName, errors);
+    }
+
+    private void validateMaxRows(int totalRows) {
+        if (totalRows > uploadPolicyProperties.getMaxRows()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "업로드 가능한 최대 행 수(" + uploadPolicyProperties.getMaxRows() + "행)를 초과했습니다."
+            );
+        }
     }
 }

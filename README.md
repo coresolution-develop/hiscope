@@ -27,16 +27,16 @@ Spring Boot + Thymeleaf + PostgreSQL + Flyway 기반으로 동작합니다.
   - 세션 고정 보호, 세션 만료 URL 지정, 기본 쿠키 보안 옵션 강화
 - 업로드 정책:
   - 빈 파일/확장자/파일 크기 검증 강화
+  - 업로드 최대 행수 제한(`APP_UPLOAD_MAX_ROWS`, 기본 5,000행)
 
 ## 2. 로컬 실행
 
 ### 사전 준비
 - Java 17
-- PostgreSQL
 
 ### DB 준비
-- DB 생성: `hiscope_eval`
-- 사용자/비밀번호는 `application-local.yml` 또는 환경변수(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)로 설정
+- 기본값은 내장 H2 DB라서 별도 DB 없이 바로 실행 가능
+- PostgreSQL을 쓰려면 `application-local.yml` 또는 환경변수(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DRIVER_CLASS_NAME`)로 설정
 
 ### 실행
 ```bash
@@ -89,10 +89,23 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 관리자 실제 사용 흐름은 아래 문서 참고:
 
-- [ADMIN_OPERATIONS.md](/Users/leesumin/hiscope/docs/ADMIN_OPERATIONS.md)
-- [ADMIN_MANUAL_DRAFT.md](/Users/leesumin/hiscope/docs/ADMIN_MANUAL_DRAFT.md)
-- [EXCEL_UPLOAD_GUIDE_DRAFT.md](/Users/leesumin/hiscope/docs/EXCEL_UPLOAD_GUIDE_DRAFT.md)
-- [UAT_CHECKLIST.md](/Users/leesumin/hiscope/docs/UAT_CHECKLIST.md)
-- [E2E_OPERATION_SCENARIOS.md](/Users/leesumin/hiscope/docs/E2E_OPERATION_SCENARIOS.md)
-- [OPS_RISK_ASSESSMENT.md](/Users/leesumin/hiscope/docs/OPS_RISK_ASSESSMENT.md)
-- [PRE_DEPLOY_CHECKLIST.md](/Users/leesumin/hiscope/docs/PRE_DEPLOY_CHECKLIST.md)
+- [ADMIN_OPERATIONS.md](docs/ADMIN_OPERATIONS.md)
+- [ADMIN_MANUAL_DRAFT.md](docs/ADMIN_MANUAL_DRAFT.md)
+- [EXCEL_UPLOAD_GUIDE_DRAFT.md](docs/EXCEL_UPLOAD_GUIDE_DRAFT.md)
+- [UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md)
+- [E2E_OPERATION_SCENARIOS.md](docs/E2E_OPERATION_SCENARIOS.md)
+- [OPS_RISK_ASSESSMENT.md](docs/OPS_RISK_ASSESSMENT.md)
+- [PRE_DEPLOY_CHECKLIST.md](docs/PRE_DEPLOY_CHECKLIST.md)
+- [DEPLOY_GUIDE_FINAL.md](docs/DEPLOY_GUIDE_FINAL.md)
+- [ROLLBACK_GUIDE_FINAL.md](docs/ROLLBACK_GUIDE_FINAL.md)
+- [ADMIN_MANUAL_FINAL.md](docs/ADMIN_MANUAL_FINAL.md)
+- [EXCEL_UPLOAD_GUIDE_FINAL.md](docs/EXCEL_UPLOAD_GUIDE_FINAL.md)
+- [TROUBLESHOOTING_GUIDE_FINAL.md](docs/TROUBLESHOOTING_GUIDE_FINAL.md)
+- [GO_NO_GO_CHECKLIST_FINAL.md](docs/GO_NO_GO_CHECKLIST_FINAL.md)
+- [STAGING_ENV_SETUP_FINAL.md](docs/STAGING_ENV_SETUP_FINAL.md)
+- [STAGING_REHEARSAL_REPORT_FINAL.md](docs/STAGING_REHEARSAL_REPORT_FINAL.md)
+- [PRODUCTION_DEPLOYMENT_CHECKLIST_FINAL.md](docs/PRODUCTION_DEPLOYMENT_CHECKLIST_FINAL.md)
+- [POST_DEPLOY_SMOKE_TEST_CHECKLIST_FINAL.md](docs/POST_DEPLOY_SMOKE_TEST_CHECKLIST_FINAL.md)
+- [INITIAL_MONITORING_CHECKLIST_FINAL.md](docs/INITIAL_MONITORING_CHECKLIST_FINAL.md)
+- [INCIDENT_FIRST_RESPONSE_GUIDE_FINAL.md](docs/INCIDENT_FIRST_RESPONSE_GUIDE_FINAL.md)
+- [STABILIZATION_BACKLOG_DRAFT.md](docs/STABILIZATION_BACKLOG_DRAFT.md)

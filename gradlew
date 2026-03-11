@@ -114,6 +114,11 @@ case "$( uname )" in                #(
   NONSTOP* )        nonstop=true ;;
 esac
 
+LOCAL_JAVA_HOME=$APP_HOME/.local-jdks/temurin-17.jdk/Contents/Home
+if [ -z "$JAVA_HOME" ] && [ -x "$LOCAL_JAVA_HOME/bin/java" ] ; then
+    JAVA_HOME=$LOCAL_JAVA_HOME
+    export JAVA_HOME
+fi
 
 
 # Determine the Java command to use to start the JVM.
@@ -139,6 +144,19 @@ else
 Please set the JAVA_HOME variable in your environment to match the
 location of your Java installation."
     fi
+fi
+
+JAVA_VERSION=$( "$JAVACMD" -version 2>&1 | sed -n '1s/.*version "\(.*\)".*/\1/p' )
+case $JAVA_VERSION in
+  1.*) JAVA_MAJOR=${JAVA_VERSION#1.}; JAVA_MAJOR=${JAVA_MAJOR%%.*} ;;
+  *) JAVA_MAJOR=${JAVA_VERSION%%.*} ;;
+esac
+
+if [ "${JAVA_MAJOR:-0}" -lt 17 ] ; then
+    die "ERROR: Java 17 or newer is required for this project. Current Java: ${JAVA_VERSION:-unknown}
+
+Install JDK 17+ or place it at:
+  $LOCAL_JAVA_HOME"
 fi
 
 # Increase the maximum file descriptors if we can.

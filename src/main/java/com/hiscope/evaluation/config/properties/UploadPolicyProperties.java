@@ -15,4 +15,5 @@ public class UploadPolicyProperties {
 
     private long maxFileSizeBytes = 10 * 1024 * 1024;
     private List<String> allowedExtensions = List.of("xlsx");
+    private int maxRows = 5000;
 }

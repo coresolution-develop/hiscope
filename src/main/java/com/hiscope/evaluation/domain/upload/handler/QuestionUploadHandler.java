@@ -3,6 +3,7 @@ package com.hiscope.evaluation.domain.upload.handler;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.util.ExcelUtils;
+import com.hiscope.evaluation.config.properties.UploadPolicyProperties;
 import com.hiscope.evaluation.domain.evaluation.template.entity.EvaluationQuestion;
 import com.hiscope.evaluation.domain.evaluation.template.repository.EvaluationQuestionRepository;
 import com.hiscope.evaluation.domain.evaluation.template.repository.EvaluationTemplateRepository;
@@ -31,6 +32,7 @@ public class QuestionUploadHandler {
 
     private final EvaluationQuestionRepository questionRepository;
     private final EvaluationTemplateRepository templateRepository;
+    private final UploadPolicyProperties uploadPolicyProperties;
 
     @Transactional
     public UploadResult handle(Long orgId, Long templateId, MultipartFile file) {
@@ -50,6 +52,7 @@ public class QuestionUploadHandler {
                 Row row = sheet.getRow(i);
                 if (ExcelUtils.isRowEmpty(row, 4)) continue;
                 totalRows++;
+                validateMaxRows(totalRows);
 
                 String category  = ExcelUtils.getCellString(row, 0);
                 String content   = ExcelUtils.getCellString(row, 1);
@@ -102,5 +105,14 @@ public class QuestionUploadHandler {
         if (errors.isEmpty()) return UploadResult.success("QUESTION", fileName, totalRows);
         if (successRows > 0) return UploadResult.partial("QUESTION", fileName, totalRows, successRows, errors);
         return UploadResult.failed("QUESTION", fileName, errors);
+    }
+
+    private void validateMaxRows(int totalRows) {
+        if (totalRows > uploadPolicyProperties.getMaxRows()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "업로드 가능한 최대 행 수(" + uploadPolicyProperties.getMaxRows() + "행)를 초과했습니다."
+            );
+        }
     }
 }

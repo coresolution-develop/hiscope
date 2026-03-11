@@ -37,6 +37,7 @@ dependencies {
 
     // Database
     runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("com.h2database:h2")
     implementation("org.flywaydb:flyway-core")
 
     // Excel
@@ -53,6 +54,8 @@ dependencies {
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("io.zonky.test:embedded-postgres:2.1.0")
+    testRuntimeOnly("io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8:17.6.0")
     testRuntimeOnly("com.h2database:h2")
 }
 

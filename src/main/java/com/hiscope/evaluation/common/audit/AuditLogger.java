@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -22,14 +23,16 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuditLogger {
 
     private static final Logger AUDIT = LoggerFactory.getLogger("AUDIT");
+    private static final int MAX_IP_LENGTH = 64;
+    private static final int MAX_USER_AGENT_LENGTH = 500;
     private final AuditLogRepository auditLogRepository;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void success(String action, String targetType, String targetId, String detail) {
         record(action, targetType, targetId, "SUCCESS", detail);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void fail(String action, String targetType, String targetId, String detail) {
         record(action, targetType, targetId, "FAIL", detail);
     }
@@ -71,7 +74,34 @@ public class AuditLogger {
             return new RequestMeta("-", "-");
         }
         HttpServletRequest req = attrs.getRequest();
-        return new RequestMeta(req.getRemoteAddr(), req.getHeader("User-Agent"));
+        String ipAddress = resolveClientIp(req);
+        String userAgent = trimToLength(req.getHeader("User-Agent"), MAX_USER_AGENT_LENGTH);
+        return new RequestMeta(ipAddress, userAgent);
+    }
+
+    private String resolveClientIp(HttpServletRequest req) {
+        String forwardedFor = req.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            String firstIp = forwardedFor.split(",")[0].trim();
+            if (!firstIp.isBlank()) {
+                return trimToLength(firstIp, MAX_IP_LENGTH);
+            }
+        }
+        String realIp = req.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return trimToLength(realIp.trim(), MAX_IP_LENGTH);
+        }
+        return trimToLength(req.getRemoteAddr(), MAX_IP_LENGTH);
+    }
+
+    private String trimToLength(String value, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 
     private record ActorContext(Long actorId, String loginId, String role, Long organizationId) {

@@ -56,16 +56,23 @@ public class UploadService {
         SecurityUtils.checkOrgAccess(orgId);
         validateFileType(file);
         Long uploadedBy = SecurityUtils.getCurrentUser().getId();
+        String fileName = resolveFileName(file);
         try {
             UploadResult result = departmentHandler.handle(orgId, file);
             uploadHistoryService.record(orgId, result, uploadedBy);
             return result;
         } catch (BusinessException e) {
             log.error("부서 업로드 실패 org={}, file={}: {}", orgId, file.getOriginalFilename(), e.getMessage());
-            UploadResult failResult = UploadResult.failed("DEPARTMENT", file.getOriginalFilename(),
+            UploadResult failResult = UploadResult.failed("DEPARTMENT", fileName,
                     List.of(new UploadError(0, "-", e.getMessage())));
             uploadHistoryService.record(orgId, failResult, uploadedBy);
             throw e;
+        } catch (Exception e) {
+            log.error("부서 업로드 처리 중 시스템 오류 org={}, file={}", orgId, fileName, e);
+            UploadResult failResult = UploadResult.failed("DEPARTMENT", fileName,
+                    List.of(new UploadError(0, "-", "시스템 오류로 업로드 처리에 실패했습니다.")));
+            uploadHistoryService.record(orgId, failResult, uploadedBy);
+            throw new BusinessException(ErrorCode.EXCEL_PARSE_ERROR, "엑셀 처리 중 시스템 오류가 발생했습니다.");
         }
     }
 
@@ -80,16 +87,23 @@ public class UploadService {
         SecurityUtils.checkOrgAccess(orgId);
         validateFileType(file);
         Long uploadedBy = SecurityUtils.getCurrentUser().getId();
+        String fileName = resolveFileName(file);
         try {
             UploadResult result = employeeHandler.handle(orgId, file);
             uploadHistoryService.record(orgId, result, uploadedBy);
             return result;
         } catch (BusinessException e) {
             log.error("직원 업로드 실패 org={}, file={}: {}", orgId, file.getOriginalFilename(), e.getMessage());
-            UploadResult failResult = UploadResult.failed("EMPLOYEE", file.getOriginalFilename(),
+            UploadResult failResult = UploadResult.failed("EMPLOYEE", fileName,
                     List.of(new UploadError(0, "-", e.getMessage())));
             uploadHistoryService.record(orgId, failResult, uploadedBy);
             throw e;
+        } catch (Exception e) {
+            log.error("직원 업로드 처리 중 시스템 오류 org={}, file={}", orgId, fileName, e);
+            UploadResult failResult = UploadResult.failed("EMPLOYEE", fileName,
+                    List.of(new UploadError(0, "-", "시스템 오류로 업로드 처리에 실패했습니다.")));
+            uploadHistoryService.record(orgId, failResult, uploadedBy);
+            throw new BusinessException(ErrorCode.EXCEL_PARSE_ERROR, "엑셀 처리 중 시스템 오류가 발생했습니다.");
         }
     }
 
@@ -99,5 +113,9 @@ public class UploadService {
         if (filename == null || !filename.toLowerCase().endsWith(".xlsx")) {
             throw new BusinessException(ErrorCode.EXCEL_INVALID_FORMAT);
         }
+    }
+
+    private String resolveFileName(MultipartFile file) {
+        return file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown.xlsx";
     }
 }

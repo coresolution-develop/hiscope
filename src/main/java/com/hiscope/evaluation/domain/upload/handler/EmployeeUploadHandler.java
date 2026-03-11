@@ -3,6 +3,7 @@ package com.hiscope.evaluation.domain.upload.handler;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.util.ExcelUtils;
+import com.hiscope.evaluation.config.properties.UploadPolicyProperties;
 import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
 import com.hiscope.evaluation.domain.employee.entity.Employee;
@@ -41,6 +42,7 @@ public class EmployeeUploadHandler {
     private final AccountRepository accountRepository;
     private final DepartmentRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UploadPolicyProperties uploadPolicyProperties;
 
     private static final List<String> VALID_STATUSES = List.of("ACTIVE", "INACTIVE", "LEAVE");
 
@@ -77,6 +79,7 @@ public class EmployeeUploadHandler {
                 Row row = sheet.getRow(i);
                 if (ExcelUtils.isRowEmpty(row, 7)) continue;
                 totalRows++;
+                validateMaxRows(totalRows);
 
                 String empNum   = ExcelUtils.getCellString(row, 0);
                 String name     = ExcelUtils.getCellString(row, 1);
@@ -150,5 +153,14 @@ public class EmployeeUploadHandler {
         if (errors.isEmpty()) return UploadResult.success("EMPLOYEE", fileName, totalRows);
         if (successRows > 0) return UploadResult.partial("EMPLOYEE", fileName, totalRows, successRows, errors);
         return UploadResult.failed("EMPLOYEE", fileName, errors);
+    }
+
+    private void validateMaxRows(int totalRows) {
+        if (totalRows > uploadPolicyProperties.getMaxRows()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "업로드 가능한 최대 행 수(" + uploadPolicyProperties.getMaxRows() + "행)를 초과했습니다."
+            );
+        }
     }
 }

@@ -7,6 +7,7 @@ import com.hiscope.evaluation.domain.evaluation.template.dto.QuestionRequest;
 import com.hiscope.evaluation.domain.evaluation.template.dto.TemplateRequest;
 import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
+import com.hiscope.evaluation.domain.upload.dto.UploadError;
 import com.hiscope.evaluation.domain.upload.handler.QuestionUploadHandler;
 import com.hiscope.evaluation.domain.upload.service.UploadHistoryService;
 import com.hiscope.evaluation.domain.upload.service.UploadValidationService;
@@ -18,6 +19,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
 
 @Controller
 @RequestMapping("/admin/evaluation/templates")
@@ -121,16 +124,31 @@ public class EvaluationTemplateController {
                                   @RequestParam MultipartFile file,
                                   RedirectAttributes ra) {
         Long orgId = SecurityUtils.getCurrentOrgId();
+        Long uploadedBy = SecurityUtils.getCurrentUser().getId();
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown.xlsx";
         try {
             uploadValidationService.validateExcelFile(file);
             UploadResult result = questionUploadHandler.handle(orgId, id, file);
-            uploadHistoryService.record(orgId, result, SecurityUtils.getCurrentUser().getId());
+            uploadHistoryService.record(orgId, result, uploadedBy);
             auditLogger.success("EVAL_QUESTION_UPLOAD", "EVALUATION_TEMPLATE", String.valueOf(id),
                     "status=" + result.getStatus());
             ra.addFlashAttribute("uploadResult", result);
         } catch (BusinessException e) {
+            uploadHistoryService.record(
+                    orgId,
+                    UploadResult.failed("QUESTION", fileName, List.of(new UploadError(0, "-", e.getMessage()))),
+                    uploadedBy
+            );
             auditLogger.fail("EVAL_QUESTION_UPLOAD", "EVALUATION_TEMPLATE", String.valueOf(id), e.getMessage());
             ra.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            uploadHistoryService.record(
+                    orgId,
+                    UploadResult.failed("QUESTION", fileName, List.of(new UploadError(0, "-", "시스템 오류로 업로드 처리에 실패했습니다."))),
+                    uploadedBy
+            );
+            auditLogger.fail("EVAL_QUESTION_UPLOAD", "EVALUATION_TEMPLATE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", "문항 업로드 처리 중 오류가 발생했습니다.");
         }
         return "redirect:/admin/evaluation/templates/" + id + "/questions";
     }
