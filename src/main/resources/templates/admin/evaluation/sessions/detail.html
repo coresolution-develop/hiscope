@@ -75,6 +75,10 @@
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-grid gap-2">
+                        <a th:href="@{/admin/evaluation/results(sessionId=${evalSession.id})}"
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-clipboard-data me-1"></i>결과 조회
+                        </a>
                         <a th:href="@{/admin/evaluation/sessions/{id}/relationships(id=${evalSession.id})}"
                            class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-diagram-2 me-1"></i>평가 관계 관리

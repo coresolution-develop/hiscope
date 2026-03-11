@@ -11,6 +11,7 @@ import com.hiscope.evaluation.domain.employee.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -25,11 +26,29 @@ public class DepartmentService {
     private final EmployeeRepository employeeRepository;
 
     public List<DepartmentResponse> findAll(Long orgId) {
+        return findAll(orgId, null, null);
+    }
+
+    public List<DepartmentResponse> findAll(Long orgId, String keyword, Boolean active) {
         SecurityUtils.checkOrgAccess(orgId);
         List<Department> depts = departmentRepository.findByOrganizationIdOrderByNameAsc(orgId);
         Map<Long, String> nameMap = depts.stream()
                 .collect(Collectors.toMap(Department::getId, Department::getName));
         return depts.stream()
+                .filter(d -> {
+                    if (active == null) {
+                        return true;
+                    }
+                    return d.isActive() == active;
+                })
+                .filter(d -> {
+                    if (!StringUtils.hasText(keyword)) {
+                        return true;
+                    }
+                    String normalized = keyword.trim().toLowerCase();
+                    return d.getName().toLowerCase().contains(normalized)
+                            || d.getCode().toLowerCase().contains(normalized);
+                })
                 .map(d -> DepartmentResponse.from(d,
                         d.getParentId() != null ? nameMap.get(d.getParentId()) : null))
                 .toList();

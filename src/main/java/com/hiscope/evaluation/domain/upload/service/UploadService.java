@@ -12,8 +12,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -42,6 +44,46 @@ public class UploadService {
     public List<UploadHistory> findRecentHistory(Long orgId, int limit) {
         SecurityUtils.checkOrgAccess(orgId);
         return uploadHistoryService.findRecentByOrg(orgId, limit);
+    }
+
+    public List<UploadHistory> findRecentHistory(Long orgId,
+                                                 int limit,
+                                                 String uploadType,
+                                                 String status,
+                                                 LocalDate dateFrom,
+                                                 LocalDate dateTo,
+                                                 String keyword) {
+        SecurityUtils.checkOrgAccess(orgId);
+        return uploadHistoryService.findRecentByOrg(orgId, limit).stream()
+                .filter(h -> !StringUtils.hasText(uploadType) || uploadType.equals(h.getUploadType()))
+                .filter(h -> !StringUtils.hasText(status) || status.equals(h.getStatus()))
+                .filter(h -> dateFrom == null || !h.getCreatedAt().toLocalDate().isBefore(dateFrom))
+                .filter(h -> dateTo == null || !h.getCreatedAt().toLocalDate().isAfter(dateTo))
+                .filter(h -> {
+                    if (!StringUtils.hasText(keyword)) {
+                        return true;
+                    }
+                    return h.getFileName().toLowerCase().contains(keyword.trim().toLowerCase());
+                })
+                .toList();
+    }
+
+    public UploadFailureCsv buildFailureCsv(Long orgId, Long historyId) {
+        SecurityUtils.checkOrgAccess(orgId);
+        UploadHistory history = uploadHistoryService.getByOrgAndId(orgId, historyId);
+        List<UploadError> errors = uploadHistoryService.parseErrors(history);
+        StringBuilder csv = new StringBuilder();
+        csv.append("row_number,column,message\n");
+        for (UploadError error : errors) {
+            csv.append(error.getRowNumber())
+                    .append(',')
+                    .append(escapeCsv(error.getColumn()))
+                    .append(',')
+                    .append(escapeCsv(error.getMessage()))
+                    .append('\n');
+        }
+        String filename = "upload_errors_" + history.getId() + ".csv";
+        return new UploadFailureCsv(filename, csv.toString(), errors.size());
     }
 
     /**
@@ -117,5 +159,15 @@ public class UploadService {
 
     private String resolveFileName(MultipartFile file) {
         return file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown.xlsx";
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) {
+            return "\"\"";
+        }
+        return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+
+    public record UploadFailureCsv(String filename, String content, int errorCount) {
     }
 }

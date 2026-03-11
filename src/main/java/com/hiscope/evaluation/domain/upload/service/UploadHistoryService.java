@@ -3,8 +3,11 @@ package com.hiscope.evaluation.domain.upload.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
+import com.hiscope.evaluation.domain.upload.dto.UploadError;
 import com.hiscope.evaluation.domain.upload.entity.UploadHistory;
 import com.hiscope.evaluation.domain.upload.repository.UploadHistoryRepository;
+import com.hiscope.evaluation.common.exception.BusinessException;
+import com.hiscope.evaluation.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -79,5 +82,35 @@ public class UploadHistoryService {
     public List<UploadHistory> findRecentByOrg(Long orgId, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 5000));
         return uploadHistoryRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId, PageRequest.of(0, safeLimit));
+    }
+
+    @Transactional(readOnly = true)
+    public UploadHistory getByOrgAndId(Long orgId, Long historyId) {
+        return uploadHistoryRepository.findByOrganizationIdAndId(orgId, historyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "업로드 이력을 찾을 수 없습니다."));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UploadError> parseErrors(UploadHistory history) {
+        if (history.getErrorDetail() == null || history.getErrorDetail().isBlank()) {
+            return List.of();
+        }
+        try {
+            var root = objectMapper.readTree(history.getErrorDetail());
+            if (!root.isArray()) {
+                return List.of();
+            }
+            List<UploadError> errors = new java.util.ArrayList<>();
+            root.forEach(node -> {
+                int rowNumber = node.path("rowNumber").asInt(0);
+                String column = node.path("column").asText("-");
+                String message = node.path("message").asText("-");
+                errors.add(new UploadError(rowNumber, column, message));
+            });
+            return errors;
+        } catch (JsonProcessingException e) {
+            log.warn("업로드 오류 상세 JSON 파싱 실패 historyId={}: {}", history.getId(), e.getMessage());
+            return List.of();
+        }
     }
 }

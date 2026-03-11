@@ -12,6 +12,8 @@ public interface EvaluationAssignmentRepository extends JpaRepository<Evaluation
 
     List<EvaluationAssignment> findBySessionId(Long sessionId);
 
+    List<EvaluationAssignment> findByOrganizationIdAndSessionId(Long organizationId, Long sessionId);
+
     List<EvaluationAssignment> findByEvaluatorId(Long evaluatorId);
 
     List<EvaluationAssignment> findByEvaluatorIdAndSessionId(Long evaluatorId, Long sessionId);

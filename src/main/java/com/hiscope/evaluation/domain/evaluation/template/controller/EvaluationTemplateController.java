@@ -34,10 +34,16 @@ public class EvaluationTemplateController {
     private final AuditLogger auditLogger;
 
     @GetMapping
-    public String list(Model model) {
+    public String list(@RequestParam(required = false) String keyword,
+                       @RequestParam(required = false) String active,
+                       Model model) {
         Long orgId = SecurityUtils.getCurrentOrgId();
-        model.addAttribute("templates", templateService.findAll(orgId));
+        String normalizedKeyword = normalizeKeyword(keyword);
+        Boolean normalizedActive = normalizeActive(active);
+        model.addAttribute("templates", templateService.findAll(orgId, normalizedKeyword, normalizedActive));
         model.addAttribute("request", new TemplateRequest());
+        model.addAttribute("keyword", normalizedKeyword);
+        model.addAttribute("active", normalizedActive);
         return "admin/evaluation/templates/list";
     }
 
@@ -46,7 +52,7 @@ public class EvaluationTemplateController {
                          BindingResult br, Model model, RedirectAttributes ra) {
         Long orgId = SecurityUtils.getCurrentOrgId();
         if (br.hasErrors()) {
-            model.addAttribute("templates", templateService.findAll(orgId));
+            model.addAttribute("templates", templateService.findAll(orgId, null, null));
             return "admin/evaluation/templates/list";
         }
         var template = templateService.createTemplate(orgId, request);
@@ -151,5 +157,25 @@ public class EvaluationTemplateController {
             ra.addFlashAttribute("errorMessage", "문항 업로드 처리 중 오류가 발생했습니다.");
         }
         return "redirect:/admin/evaluation/templates/" + id + "/questions";
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return keyword.trim();
+    }
+
+    private Boolean normalizeActive(String active) {
+        if (active == null || active.isBlank()) {
+            return null;
+        }
+        if ("true".equalsIgnoreCase(active)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(active)) {
+            return false;
+        }
+        return null;
     }
 }

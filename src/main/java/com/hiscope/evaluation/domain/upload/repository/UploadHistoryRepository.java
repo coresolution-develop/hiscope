@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface UploadHistoryRepository extends JpaRepository<UploadHistory, Long> {
 
@@ -12,4 +13,6 @@ public interface UploadHistoryRepository extends JpaRepository<UploadHistory, Lo
     List<UploadHistory> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId, Pageable pageable);
 
     List<UploadHistory> findByOrganizationIdAndUploadTypeOrderByCreatedAtDesc(Long organizationId, String uploadType);
+
+    Optional<UploadHistory> findByOrganizationIdAndId(Long organizationId, Long id);
 }

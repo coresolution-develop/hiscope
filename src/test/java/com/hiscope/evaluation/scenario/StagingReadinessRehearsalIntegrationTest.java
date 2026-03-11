@@ -32,6 +32,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -151,6 +152,73 @@ class StagingReadinessRehearsalIntegrationTest {
                 .orElseThrow();
         assertThat(latestHistory.getStatus()).isEqualTo("FAILED");
         assertThat(latestHistory.getErrorDetail()).contains("문항유형");
+    }
+
+    @Test
+    void 업로드_실패내역_CSV_다운로드_가능() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "departments_over_limit_again.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                createDepartmentExcel(301)
+        );
+
+        mockMvc.perform(multipart("/admin/uploads/departments")
+                        .file(file)
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/departments"));
+
+        Long historyId = uploadHistoryRepository.findByOrganizationIdAndUploadTypeOrderByCreatedAtDesc(1L, "DEPARTMENT")
+                .stream()
+                .findFirst()
+                .orElseThrow()
+                .getId();
+
+        String csv = mockMvc.perform(get("/admin/uploads/history/{id}/errors.csv", historyId)
+                        .session(adminSession))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment; filename=\"upload_errors_" + historyId + ".csv\"")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(csv).contains("row_number,column,message");
+        assertThat(csv).contains("최대 행 수");
+    }
+
+    @Test
+    void 업로드이력_검색필터_쿼리파라미터_동작() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String fileName = "departments_filter_" + UUID.randomUUID().toString().substring(0, 6) + ".xlsx";
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                fileName,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                createDepartmentExcel(301)
+        );
+
+        mockMvc.perform(multipart("/admin/uploads/departments")
+                        .file(file)
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/departments"));
+
+        String html = mockMvc.perform(get("/admin/uploads/history")
+                        .session(adminSession)
+                        .param("uploadType", "DEPARTMENT")
+                        .param("status", "FAILED")
+                        .param("keyword", "departments_filter_"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(html).contains(fileName);
     }
 
     private MockHttpSession loginAs(String loginId, String password) throws Exception {

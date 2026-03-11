@@ -17,4 +17,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId);
 
     List<Account> findByOrganizationIdAndRoleOrderByCreatedAtDesc(Long organizationId, String role);
+
+    Optional<Account> findByOrganizationIdAndId(Long organizationId, Long id);
 }

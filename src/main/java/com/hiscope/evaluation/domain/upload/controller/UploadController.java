@@ -14,10 +14,14 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 
 @Controller
 @RequestMapping("/admin/uploads")
@@ -32,11 +36,49 @@ public class UploadController {
     private int uploadHistoryViewLimit;
 
     @GetMapping("/history")
-    public String history(Model model) {
+    public String history(@RequestParam(required = false) String uploadType,
+                          @RequestParam(required = false) String status,
+                          @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dateFrom,
+                          @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dateTo,
+                          @RequestParam(required = false) String keyword,
+                          Model model) {
         Long orgId = SecurityUtils.getCurrentOrgId();
-        model.addAttribute("histories", uploadService.findRecentHistory(orgId, uploadHistoryViewLimit));
+        String normalizedType = normalizeUploadType(uploadType);
+        String normalizedStatus = normalizeStatus(status);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        model.addAttribute("histories", uploadService.findRecentHistory(
+                orgId,
+                uploadHistoryViewLimit,
+                normalizedType,
+                normalizedStatus,
+                dateFrom,
+                dateTo,
+                normalizedKeyword
+        ));
         model.addAttribute("historyLimit", uploadHistoryViewLimit);
+        model.addAttribute("uploadType", normalizedType);
+        model.addAttribute("status", normalizedStatus);
+        model.addAttribute("dateFrom", dateFrom);
+        model.addAttribute("dateTo", dateTo);
+        model.addAttribute("keyword", normalizedKeyword);
         return "admin/uploads/history";
+    }
+
+    @GetMapping("/history/{id}/errors.csv")
+    public ResponseEntity<byte[]> downloadUploadErrors(@PathVariable Long id) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            var failureCsv = uploadService.buildFailureCsv(orgId, id);
+            auditLogger.success("UPLOAD_ERROR_DOWNLOAD", "UPLOAD_HISTORY", String.valueOf(id),
+                    "errorCount=" + failureCsv.errorCount());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + failureCsv.filename() + "\"")
+                    .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                    .body(failureCsv.content().getBytes(StandardCharsets.UTF_8));
+        } catch (BusinessException e) {
+            auditLogger.fail("UPLOAD_ERROR_DOWNLOAD", "UPLOAD_HISTORY", String.valueOf(id), e.getMessage());
+            throw e;
+        }
     }
 
     @PostMapping("/departments")
@@ -97,5 +139,26 @@ public class UploadController {
                         "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(resource);
+    }
+
+    private String normalizeUploadType(String uploadType) {
+        if ("DEPARTMENT".equals(uploadType) || "EMPLOYEE".equals(uploadType) || "QUESTION".equals(uploadType)) {
+            return uploadType;
+        }
+        return null;
+    }
+
+    private String normalizeStatus(String status) {
+        if ("SUCCESS".equals(status) || "PARTIAL".equals(status) || "FAILED".equals(status)) {
+            return status;
+        }
+        return null;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return keyword.trim();
     }
 }

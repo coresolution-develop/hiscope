@@ -20,6 +20,29 @@
         </button>
     </div>
 </div>
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" th:action="@{/admin/departments}" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">검색</label>
+                <input type="text" name="keyword" class="form-control form-control-sm" placeholder="부서명/코드"
+                       th:value="${keyword}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">상태</label>
+                <select name="active" class="form-select form-select-sm">
+                    <option value="">전체</option>
+                    <option value="true" th:selected="${active == true}">활성</option>
+                    <option value="false" th:selected="${active == false}">비활성</option>
+                </select>
+            </div>
+            <div class="col-md-5 d-flex gap-2">
+                <button type="submit" class="btn btn-outline-primary btn-sm">적용</button>
+                <a href="/admin/departments" class="btn btn-outline-secondary btn-sm">초기화</a>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div class="card">
     <div class="card-body p-0">

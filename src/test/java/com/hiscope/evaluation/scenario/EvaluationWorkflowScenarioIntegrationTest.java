@@ -294,6 +294,34 @@ class EvaluationWorkflowScenarioIntegrationTest {
         assertThat(itemAfter.getScoreValue()).isEqualTo(3);
     }
 
+    @Test
+    void 기관관리자_결과조회_기본화면_테스트() throws Exception {
+        EvaluationFixture fixture = createEvaluationFixture(false);
+        MockHttpSession userSession = loginAs("emp001", "password123");
+        MockHttpSession adminSession = loginAs("admin", "password123");
+
+        mockMvc.perform(post("/user/evaluations/{assignmentId}/submit", fixture.assignmentId())
+                        .session(userSession)
+                        .with(csrf())
+                        .param("scores[" + fixture.questionId() + "]", "4"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/user/evaluations/" + fixture.assignmentId() + "/complete"));
+
+        EvaluationAssignment assignment = assignmentRepository.findById(fixture.assignmentId()).orElseThrow();
+        String html = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/admin/evaluation/results")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(assignment.getSessionId()))
+                        .param("keyword", "이지영"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(html).contains("평가 결과 조회");
+        assertThat(html).contains("이지영");
+        assertThat(html).contains("4.0");
+    }
+
     private MockHttpSession loginAs(String loginId, String password) throws Exception {
         return (MockHttpSession) mockMvc.perform(formLogin("/login")
                         .user("loginId", loginId)

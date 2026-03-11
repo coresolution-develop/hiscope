@@ -9,6 +9,7 @@ import com.hiscope.evaluation.domain.organization.repository.OrganizationReposit
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -20,8 +21,24 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
 
     public List<OrganizationResponse> findAll() {
+        return findAll(null, null);
+    }
+
+    public List<OrganizationResponse> findAll(String keyword, String status) {
+        if (!StringUtils.hasText(keyword) && !StringUtils.hasText(status)) {
+            return organizationRepository.findAllByOrderByCreatedAtDesc()
+                    .stream()
+                    .map(OrganizationResponse::from)
+                    .toList();
+        }
         return organizationRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
+                .stream().filter(org -> {
+                    boolean statusMatch = !StringUtils.hasText(status) || status.equals(org.getStatus());
+                    boolean keywordMatch = !StringUtils.hasText(keyword)
+                            || org.getName().toLowerCase().contains(keyword.trim().toLowerCase())
+                            || org.getCode().toLowerCase().contains(keyword.trim().toLowerCase());
+                    return statusMatch && keywordMatch;
+                })
                 .map(OrganizationResponse::from)
                 .toList();
     }

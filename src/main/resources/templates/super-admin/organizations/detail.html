@@ -35,7 +35,7 @@
             </div>
             <div class="card-body p-0">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>이름</th><th>로그인 ID</th><th>이메일</th><th>상태</th><th>등록일</th></tr></thead>
+                    <thead><tr><th>이름</th><th>로그인 ID</th><th>이메일</th><th>상태</th><th>등록일</th><th>관리</th></tr></thead>
                     <tbody>
                     <tr th:each="admin : ${admins}">
                         <td th:text="${admin.name}"></td>
@@ -44,9 +44,35 @@
                         <td><span th:text="${admin.status == 'ACTIVE'} ? '활성' : '비활성'"
                                   th:class="${admin.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span></td>
                         <td th:text="${#temporals.format(admin.createdAt, 'yyyy-MM-dd')}"></td>
+                        <td class="text-nowrap">
+                            <button type="button"
+                                    class="btn btn-outline-primary btn-sm me-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editAdminModal"
+                                    th:attr="data-admin-id=${admin.id},data-admin-name=${admin.name},data-admin-email=${admin.email}">
+                                수정
+                            </button>
+                            <form th:action="@{/super-admin/organizations/{orgId}/admins/{adminId}/status(orgId=${organization.id},adminId=${admin.id})}"
+                                  method="post"
+                                  class="d-inline">
+                                <input type="hidden" name="status" th:value="${admin.status == 'ACTIVE'} ? 'INACTIVE' : 'ACTIVE'">
+                                <button type="submit"
+                                        class="btn btn-sm me-1"
+                                        th:class="${admin.status == 'ACTIVE'} ? 'btn-outline-warning btn-sm me-1' : 'btn-outline-success btn-sm me-1'"
+                                        th:text="${admin.status == 'ACTIVE'} ? '비활성화' : '활성화'"
+                                        onclick="return confirm('관리자 상태를 변경하시겠습니까?')"></button>
+                            </form>
+                            <form th:action="@{/super-admin/organizations/{orgId}/admins/{adminId}/reset-password(orgId=${organization.id},adminId=${admin.id})}"
+                                  method="post"
+                                  class="d-inline">
+                                <button type="submit"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        onclick="return confirm('비밀번호를 초기화하시겠습니까?')">비밀번호 초기화</button>
+                            </form>
+                        </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(admins)}">
-                        <td colspan="5" class="text-center text-muted py-3">등록된 관리자가 없습니다.</td>
+                        <td colspan="6" class="text-center text-muted py-3">등록된 관리자가 없습니다.</td>
                     </tr>
                     </tbody>
                 </table>
@@ -90,6 +116,54 @@
         </div>
     </div>
 </div>
+
+<!-- 관리자 수정 모달 -->
+<div class="modal fade" id="editAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">기관 관리자 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editAdminForm" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">이름 *</label>
+                        <input type="text" name="name" id="editAdminName" class="form-control" placeholder="이름">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">이메일</label>
+                        <input type="email" name="email" id="editAdminEmail" class="form-control" placeholder="이메일">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </th:block>
-<th:block th:fragment="scripts"></th:block>
+<th:block th:fragment="scripts">
+<script th:inline="javascript">
+document.addEventListener("DOMContentLoaded", function () {
+    const editModal = document.getElementById("editAdminModal");
+    if (!editModal) return;
+    editModal.addEventListener("show.bs.modal", function (event) {
+        const button = event.relatedTarget;
+        if (!button) return;
+        const adminId = button.getAttribute("data-admin-id");
+        const adminName = button.getAttribute("data-admin-name") || "";
+        const adminEmail = button.getAttribute("data-admin-email") || "";
+        document.getElementById("editAdminName").value = adminName;
+        document.getElementById("editAdminEmail").value = adminEmail;
+        document.getElementById("editAdminForm").setAttribute(
+            "action",
+            "/super-admin/organizations/" + [[${organization.id}]] + "/admins/" + adminId + "/update"
+        );
+    });
+});
+</script>
+</th:block>
 </html>

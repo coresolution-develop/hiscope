@@ -45,54 +45,53 @@
 </div>
 <div class="card mb-3">
     <div class="card-body py-3">
-        <div class="row g-2 align-items-end">
+        <form method="get" th:action="@{/admin/uploads/history}" class="row g-2 align-items-end">
             <div class="col-md-3">
                 <label for="uploadTypeFilter" class="form-label small text-muted mb-1">유형</label>
-                <select id="uploadTypeFilter" class="form-select form-select-sm">
+                <select id="uploadTypeFilter" name="uploadType" class="form-select form-select-sm">
                     <option value="">전체</option>
-                    <option value="DEPARTMENT">부서</option>
-                    <option value="EMPLOYEE">직원</option>
-                    <option value="QUESTION">평가문항</option>
+                    <option value="DEPARTMENT" th:selected="${uploadType == 'DEPARTMENT'}">부서</option>
+                    <option value="EMPLOYEE" th:selected="${uploadType == 'EMPLOYEE'}">직원</option>
+                    <option value="QUESTION" th:selected="${uploadType == 'QUESTION'}">평가문항</option>
                 </select>
             </div>
             <div class="col-md-3">
                 <label for="uploadStatusFilter" class="form-label small text-muted mb-1">상태</label>
-                <select id="uploadStatusFilter" class="form-select form-select-sm">
+                <select id="uploadStatusFilter" name="status" class="form-select form-select-sm">
                     <option value="">전체</option>
-                    <option value="SUCCESS">성공</option>
-                    <option value="PARTIAL">부분성공</option>
-                    <option value="FAILED">실패</option>
+                    <option value="SUCCESS" th:selected="${status == 'SUCCESS'}">성공</option>
+                    <option value="PARTIAL" th:selected="${status == 'PARTIAL'}">부분성공</option>
+                    <option value="FAILED" th:selected="${status == 'FAILED'}">실패</option>
                 </select>
             </div>
             <div class="col-md-2">
                 <label for="uploadDateFrom" class="form-label small text-muted mb-1">시작일</label>
-                <input id="uploadDateFrom" type="date" class="form-control form-control-sm">
+                <input id="uploadDateFrom" name="dateFrom" type="date" class="form-control form-control-sm"
+                       th:value="${dateFrom}">
             </div>
             <div class="col-md-2">
                 <label for="uploadDateTo" class="form-label small text-muted mb-1">종료일</label>
-                <input id="uploadDateTo" type="date" class="form-control form-control-sm">
+                <input id="uploadDateTo" name="dateTo" type="date" class="form-control form-control-sm"
+                       th:value="${dateTo}">
             </div>
             <div class="col-md-1">
                 <label for="uploadKeyword" class="form-label small text-muted mb-1">파일명</label>
-                <input id="uploadKeyword" type="text" class="form-control form-control-sm" placeholder="검색">
+                <input id="uploadKeyword" name="keyword" type="text" class="form-control form-control-sm" placeholder="검색"
+                       th:value="${keyword}">
             </div>
             <div class="col-md-1 text-end">
-                <div class="small text-muted">결과</div>
-                <div class="fw-semibold" id="visibleUploadCount" th:text="${#lists.size(histories)}">0</div>
+                <button type="submit" class="btn btn-outline-primary btn-sm w-100 mb-1">적용</button>
+                <a href="/admin/uploads/history" class="btn btn-outline-secondary btn-sm w-100">초기화</a>
             </div>
-        </div>
+        </form>
     </div>
 </div>
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
             <thead><tr><th>유형</th><th>파일명</th><th>처리 결과</th><th>성공률</th><th>상태</th><th>실패 상세</th><th>업로드 일시</th></tr></thead>
-            <tbody id="uploadTableBody">
-            <tr th:each="h : ${histories}" class="upload-row"
-                th:attr="data-type=${h.uploadType},
-                         data-status=${h.status},
-                         data-date=${#temporals.format(h.createdAt, 'yyyy-MM-dd')},
-                         data-file=${#strings.toLowerCase(h.fileName)}">
+            <tbody>
+            <tr th:each="h : ${histories}">
                 <td><span th:text="${h.uploadType == 'DEPARTMENT'} ? '부서' : (${h.uploadType == 'EMPLOYEE'} ? '직원' : '평가문항')"
                           class="badge bg-light text-dark border"></span></td>
                 <td class="small" th:text="${h.fileName}"></td>
@@ -124,6 +123,11 @@
                         <pre class="small mb-0 mt-1 p-2 bg-light border rounded" style="max-height: 140px; white-space: pre-wrap;"
                              th:text="${h.errorDetail}"></pre>
                     </details>
+                    <a th:if="${h.failRows > 0 && !#strings.isEmpty(h.errorDetail)}"
+                       th:href="@{/admin/uploads/history/{id}/errors.csv(id=${h.id})}"
+                       class="btn btn-outline-danger btn-sm mt-1">
+                        실패 내역 다운로드
+                    </a>
                     <span class="small text-muted" th:if="${#strings.isEmpty(h.errorDetail)}">-</span>
                 </td>
                 <td class="small text-muted" th:text="${#temporals.format(h.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
@@ -131,70 +135,10 @@
             <tr th:if="${#lists.isEmpty(histories)}" id="emptyUploadRow">
                 <td colspan="7" class="text-center text-muted py-4">업로드 이력이 없습니다.</td>
             </tr>
-            <tr id="noUploadResultRow" style="display:none;">
-                <td colspan="7" class="text-center text-muted py-4">검색 조건에 맞는 업로드 이력이 없습니다.</td>
-            </tr>
             </tbody>
         </table>
     </div>
 </div>
 </th:block>
-<th:block th:fragment="scripts">
-    <script>
-        (function () {
-            const rows = Array.from(document.querySelectorAll('.upload-row'));
-            if (!rows.length) {
-                return;
-            }
-
-            const typeEl = document.getElementById('uploadTypeFilter');
-            const statusEl = document.getElementById('uploadStatusFilter');
-            const dateFromEl = document.getElementById('uploadDateFrom');
-            const dateToEl = document.getElementById('uploadDateTo');
-            const keywordEl = document.getElementById('uploadKeyword');
-            const countEl = document.getElementById('visibleUploadCount');
-            const noResultRow = document.getElementById('noUploadResultRow');
-
-            function applyFilters() {
-                const type = typeEl.value || '';
-                const status = statusEl.value || '';
-                const dateFrom = dateFromEl.value || '';
-                const dateTo = dateToEl.value || '';
-                const keyword = (keywordEl.value || '').trim().toLowerCase();
-                let visible = 0;
-
-                rows.forEach((row) => {
-                    const rowType = row.dataset.type || '';
-                    const rowStatus = row.dataset.status || '';
-                    const rowDate = row.dataset.date || '';
-                    const rowFile = row.dataset.file || '';
-
-                    const matched = (!type || rowType === type)
-                        && (!status || rowStatus === status)
-                        && (!dateFrom || rowDate >= dateFrom)
-                        && (!dateTo || rowDate <= dateTo)
-                        && (!keyword || rowFile.includes(keyword));
-                    row.style.display = matched ? '' : 'none';
-                    if (matched) {
-                        visible += 1;
-                    }
-                });
-
-                if (countEl) {
-                    countEl.textContent = String(visible);
-                }
-                if (noResultRow) {
-                    noResultRow.style.display = visible === 0 ? '' : 'none';
-                }
-            }
-
-            typeEl.addEventListener('change', applyFilters);
-            statusEl.addEventListener('change', applyFilters);
-            dateFromEl.addEventListener('change', applyFilters);
-            dateToEl.addEventListener('change', applyFilters);
-            keywordEl.addEventListener('input', applyFilters);
-            applyFilters();
-        }());
-    </script>
-</th:block>
+<th:block th:fragment="scripts"></th:block>
 </html>

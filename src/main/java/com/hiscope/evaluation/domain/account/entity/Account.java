@@ -43,6 +43,11 @@ public class Account extends BaseTimeEntity {
         this.status = status;
     }
 
+    public void updateProfile(String name, String email) {
+        this.name = name;
+        this.email = email;
+    }
+
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
     }

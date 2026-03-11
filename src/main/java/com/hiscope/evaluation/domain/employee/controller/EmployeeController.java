@@ -1,5 +1,6 @@
 package com.hiscope.evaluation.domain.employee.controller;
 
+import com.hiscope.evaluation.common.audit.AuditLogger;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.department.service.DepartmentService;
@@ -25,6 +26,7 @@ public class EmployeeController {
 
     private final EmployeeService employeeService;
     private final DepartmentService departmentService;
+    private final AuditLogger auditLogger;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
@@ -106,7 +108,9 @@ public class EmployeeController {
             model.addAttribute("errorMessage", message);
             return "admin/employees/list";
         }
-        employeeService.create(orgId, request);
+        var created = employeeService.create(orgId, request);
+        auditLogger.success("EMP_CREATE", "EMPLOYEE", String.valueOf(created.getId()),
+                "employeeNumber=" + created.getEmployeeNumber());
         ra.addFlashAttribute("successMessage", "직원이 등록되었습니다.");
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
     }
@@ -138,7 +142,9 @@ public class EmployeeController {
             return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
         }
         Long orgId = SecurityUtils.getCurrentOrgId();
-        employeeService.update(orgId, id, request);
+        var updated = employeeService.update(orgId, id, request);
+        auditLogger.success("EMP_UPDATE", "EMPLOYEE", String.valueOf(id),
+                "employeeNumber=" + updated.getEmployeeNumber() + ", status=" + updated.getStatus());
         ra.addFlashAttribute("successMessage", "직원 정보가 수정되었습니다.");
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
     }
@@ -163,10 +169,13 @@ public class EmployeeController {
         try {
             Long orgId = SecurityUtils.getCurrentOrgId();
             employeeService.deactivate(orgId, id);
+            auditLogger.success("EMP_DEACTIVATE", "EMPLOYEE", String.valueOf(id), "status=INACTIVE");
             ra.addFlashAttribute("successMessage", "직원이 비활성화되었습니다.");
         } catch (BusinessException e) {
+            auditLogger.fail("EMP_DEACTIVATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
             ra.addFlashAttribute("errorMessage", e.getMessage());
         } catch (Exception e) {
+            auditLogger.fail("EMP_DEACTIVATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
             ra.addFlashAttribute("errorMessage", "직원 비활성화 중 오류가 발생했습니다.");
         }
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
@@ -192,10 +201,13 @@ public class EmployeeController {
         try {
             Long orgId = SecurityUtils.getCurrentOrgId();
             employeeService.activate(orgId, id);
+            auditLogger.success("EMP_ACTIVATE", "EMPLOYEE", String.valueOf(id), "status=ACTIVE");
             ra.addFlashAttribute("successMessage", "직원이 재활성화되었습니다.");
         } catch (BusinessException e) {
+            auditLogger.fail("EMP_ACTIVATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
             ra.addFlashAttribute("errorMessage", e.getMessage());
         } catch (Exception e) {
+            auditLogger.fail("EMP_ACTIVATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
             ra.addFlashAttribute("errorMessage", "직원 재활성화 중 오류가 발생했습니다.");
         }
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);

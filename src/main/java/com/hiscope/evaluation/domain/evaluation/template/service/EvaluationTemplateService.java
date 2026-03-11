@@ -12,6 +12,7 @@ import com.hiscope.evaluation.domain.evaluation.template.repository.EvaluationTe
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -24,8 +25,22 @@ public class EvaluationTemplateService {
     private final EvaluationQuestionRepository questionRepository;
 
     public List<EvaluationTemplate> findAll(Long orgId) {
+        return findAll(orgId, null, null);
+    }
+
+    public List<EvaluationTemplate> findAll(Long orgId, String keyword, Boolean active) {
         SecurityUtils.checkOrgAccess(orgId);
-        return templateRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId);
+        return templateRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId).stream()
+                .filter(t -> active == null || t.isActive() == active)
+                .filter(t -> {
+                    if (!StringUtils.hasText(keyword)) {
+                        return true;
+                    }
+                    String normalized = keyword.trim().toLowerCase();
+                    return t.getName().toLowerCase().contains(normalized)
+                            || (t.getDescription() != null && t.getDescription().toLowerCase().contains(normalized));
+                })
+                .toList();
     }
 
     public EvaluationTemplate findById(Long orgId, Long id) {
