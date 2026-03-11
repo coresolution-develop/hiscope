@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+
+# Logs
+logs/
+*.log
+
+# IntelliJ / VSCode
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Runtime
+*.pid
+*.seed
+
+# Java
+out/
+
+# Local agent config
+.claude/

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>직원 관리</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-people me-2 text-primary"></i>직원 관리</h4>
+    <div class="d-flex gap-2">
+        <form action="/admin/uploads/employees" method="post" enctype="multipart/form-data" class="d-flex gap-2">
+            <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" style="width:220px">
+            <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-upload me-1"></i>엑셀 업로드</button>
+        </form>
+        <a href="/admin/uploads/template/employees" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>템플릿</a>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addEmpModal">
+            <i class="bi bi-person-plus me-1"></i>직원 추가
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body border-bottom py-3">
+        <form method="get" th:action="@{/admin/employees}" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">검색</label>
+                <input type="text"
+                       class="form-control form-control-sm"
+                       name="keyword"
+                       th:value="${keyword}"
+                       placeholder="이름/사원번호/이메일">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">상태</label>
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">전체</option>
+                    <option value="ACTIVE" th:selected="${status == 'ACTIVE'}">재직</option>
+                    <option value="INACTIVE" th:selected="${status == 'INACTIVE'}">비활성</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">부서</label>
+                <select class="form-select form-select-sm" name="departmentId">
+                    <option value="">전체</option>
+                    <option th:each="dept : ${departments}"
+                            th:value="${dept.id}"
+                            th:text="${dept.name}"
+                            th:selected="${departmentId != null and departmentId == dept.id}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">정렬 기준</label>
+                <select class="form-select form-select-sm" name="sortBy">
+                    <option value="name" th:selected="${sortBy == 'name'}">이름</option>
+                    <option value="employeeNumber" th:selected="${sortBy == 'employeeNumber'}">사원번호</option>
+                    <option value="status" th:selected="${sortBy == 'status'}">상태</option>
+                    <option value="createdAt" th:selected="${sortBy == 'createdAt'}">등록일</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">방향</label>
+                <select class="form-select form-select-sm" name="sortDir">
+                    <option value="asc" th:selected="${sortDir == 'asc'}">오름</option>
+                    <option value="desc" th:selected="${sortDir == 'desc'}">내림</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">페이지 크기</label>
+                <select class="form-select form-select-sm" name="size">
+                    <option value="20" th:selected="${size == 20}">20</option>
+                    <option value="50" th:selected="${size == 50}">50</option>
+                    <option value="100" th:selected="${size == 100}">100</option>
+                    <option value="200" th:selected="${size == 200}">200</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-grid">
+                <button type="submit" class="btn btn-outline-primary btn-sm">적용</button>
+            </div>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>이름</th><th>사원번호</th><th>부서</th><th>직위</th><th>직책</th><th>로그인ID</th><th>상태</th><th width="140">관리</th></tr></thead>
+            <tbody>
+            <tr th:each="emp : ${employees}">
+                <td class="fw-semibold" th:text="${emp.name}"></td>
+                <td><code th:text="${emp.employeeNumber}"></code></td>
+                <td th:text="${emp.departmentName} ?: '-'"></td>
+                <td th:text="${emp.position} ?: '-'"></td>
+                <td th:text="${emp.jobTitle} ?: '-'"></td>
+                <td><code th:text="${emp.loginId} ?: '-'"></code></td>
+                <td><span th:text="${emp.status == 'ACTIVE'} ? '재직' : (${emp.status == 'INACTIVE'} ? '비활성' : '휴직')"
+                          th:class="${emp.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span></td>
+                <td>
+                    <form th:action="@{/admin/employees/{id}/deactivate(id=${emp.id})}" method="post" class="d-inline">
+                        <input type="hidden" name="page" th:value="${page}">
+                        <input type="hidden" name="size" th:value="${size}">
+                        <input type="hidden" name="keyword" th:value="${keyword}">
+                        <input type="hidden" name="status" th:value="${status}">
+                        <input type="hidden" name="departmentId" th:value="${departmentId}">
+                        <input type="hidden" name="sortBy" th:value="${sortBy}">
+                        <input type="hidden" name="sortDir" th:value="${sortDir}">
+                        <button type="submit" class="btn btn-outline-warning btn-sm"
+                                th:if="${emp.status == 'ACTIVE'}"
+                                onclick="return confirm('비활성화하시겠습니까?')">비활성화</button>
+                    </form>
+                    <form th:action="@{/admin/employees/{id}/activate(id=${emp.id})}" method="post" class="d-inline">
+                        <input type="hidden" name="page" th:value="${page}">
+                        <input type="hidden" name="size" th:value="${size}">
+                        <input type="hidden" name="keyword" th:value="${keyword}">
+                        <input type="hidden" name="status" th:value="${status}">
+                        <input type="hidden" name="departmentId" th:value="${departmentId}">
+                        <input type="hidden" name="sortBy" th:value="${sortBy}">
+                        <input type="hidden" name="sortDir" th:value="${sortDir}">
+                        <button type="submit" class="btn btn-outline-success btn-sm"
+                                th:if="${emp.status == 'INACTIVE'}"
+                                onclick="return confirm('재활성화하시겠습니까?')">재활성화</button>
+                    </form>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(employees)}">
+                <td colspan="8" class="text-center text-muted py-4">등록된 직원이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="d-flex justify-content-between align-items-center mt-3" th:if="${employeePage != null}">
+    <div class="small text-muted">
+        총 <span th:text="${employeePage.totalElements}">0</span>명 /
+        <span th:text="${employeePage.number + 1}">1</span> / <span th:text="${employeePage.totalPages}">1</span> 페이지
+    </div>
+    <nav th:if="${employeePage.totalPages > 1}">
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" th:classappend="${employeePage.first} ? ' disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/employees(page=${employeePage.number - 1},size=${size},keyword=${keyword},status=${status},departmentId=${departmentId},sortBy=${sortBy},sortDir=${sortDir})}">이전</a>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link" th:text="|${employeePage.number + 1} / ${employeePage.totalPages}|">1 / 1</span>
+            </li>
+            <li class="page-item" th:classappend="${employeePage.last} ? ' disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/employees(page=${employeePage.number + 1},size=${size},keyword=${keyword},status=${status},departmentId=${departmentId},sortBy=${sortBy},sortDir=${sortDir})}">다음</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<!-- 직원 추가 모달 -->
+<div class="modal fade" id="addEmpModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">직원 추가</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form th:action="@{/admin/employees}" method="post" th:object="${request}">
+                <input type="hidden" name="page" th:value="${page}">
+                <input type="hidden" name="size" th:value="${size}">
+                <input type="hidden" name="keyword" th:value="${keyword}">
+                <input type="hidden" name="status" th:value="${status}">
+                <input type="hidden" name="departmentId" th:value="${departmentId}">
+                <input type="hidden" name="sortBy" th:value="${sortBy}">
+                <input type="hidden" name="sortDir" th:value="${sortDir}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">이름 *</label>
+                            <input type="text" th:field="*{name}" class="form-control" placeholder="이름">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">사원번호 *</label>
+                            <input type="text" th:field="*{employeeNumber}" class="form-control" placeholder="사원번호">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">부서 *</label>
+                            <select th:field="*{departmentId}" class="form-select">
+                                <option value="">부서 선택</option>
+                                <option th:each="dept : ${departments}" th:value="${dept.id}" th:text="${dept.name}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">직위</label>
+                            <select th:field="*{position}" class="form-select">
+                                <option value="">선택</option>
+                                <option>사원</option><option>대리</option><option>과장</option><option>차장</option><option>부장</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">직책</label>
+                            <select th:field="*{jobTitle}" class="form-select">
+                                <option value="">선택</option>
+                                <option>팀원</option><option>팀장</option><option>실장</option><option>부문장</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">이메일</label>
+                            <input type="email" th:field="*{email}" class="form-control" placeholder="이메일">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">로그인 ID *</label>
+                            <input type="text" th:field="*{loginId}" class="form-control" placeholder="로그인 ID (4~50자)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">초기 비밀번호</label>
+                            <input type="password" th:field="*{password}" class="form-control" placeholder="비워두면 password123">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

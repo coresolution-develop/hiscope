@@ -1,0 +1,137 @@
+package com.hiscope.evaluation.domain.evaluation.template.controller;
+
+import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.exception.BusinessException;
+import com.hiscope.evaluation.common.security.SecurityUtils;
+import com.hiscope.evaluation.domain.evaluation.template.dto.QuestionRequest;
+import com.hiscope.evaluation.domain.evaluation.template.dto.TemplateRequest;
+import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
+import com.hiscope.evaluation.domain.upload.dto.UploadResult;
+import com.hiscope.evaluation.domain.upload.handler.QuestionUploadHandler;
+import com.hiscope.evaluation.domain.upload.service.UploadHistoryService;
+import com.hiscope.evaluation.domain.upload.service.UploadValidationService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+@Controller
+@RequestMapping("/admin/evaluation/templates")
+@RequiredArgsConstructor
+public class EvaluationTemplateController {
+
+    private final EvaluationTemplateService templateService;
+    private final QuestionUploadHandler questionUploadHandler;
+    private final UploadHistoryService uploadHistoryService;
+    private final UploadValidationService uploadValidationService;
+    private final AuditLogger auditLogger;
+
+    @GetMapping
+    public String list(Model model) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        model.addAttribute("templates", templateService.findAll(orgId));
+        model.addAttribute("request", new TemplateRequest());
+        return "admin/evaluation/templates/list";
+    }
+
+    @PostMapping
+    public String create(@Valid @ModelAttribute("request") TemplateRequest request,
+                         BindingResult br, Model model, RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        if (br.hasErrors()) {
+            model.addAttribute("templates", templateService.findAll(orgId));
+            return "admin/evaluation/templates/list";
+        }
+        var template = templateService.createTemplate(orgId, request);
+        auditLogger.success("EVAL_TEMPLATE_CREATE", "EVALUATION_TEMPLATE", String.valueOf(template.getId()), template.getName());
+        ra.addFlashAttribute("successMessage", "템플릿이 생성되었습니다.");
+        return "redirect:/admin/evaluation/templates";
+    }
+
+    @PostMapping("/{id}/update")
+    public String update(@PathVariable Long id,
+                         @Valid @ModelAttribute TemplateRequest request,
+                         BindingResult br, RedirectAttributes ra) {
+        if (br.hasErrors()) { ra.addFlashAttribute("errorMessage", "입력값을 확인해주세요."); return "redirect:/admin/evaluation/templates"; }
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        templateService.updateTemplate(orgId, id, request);
+        auditLogger.success("EVAL_TEMPLATE_UPDATE", "EVALUATION_TEMPLATE", String.valueOf(id), request.getName());
+        ra.addFlashAttribute("successMessage", "템플릿이 수정되었습니다.");
+        return "redirect:/admin/evaluation/templates";
+    }
+
+    @PostMapping("/{id}/delete")
+    public String delete(@PathVariable Long id, RedirectAttributes ra) {
+        templateService.deleteTemplate(SecurityUtils.getCurrentOrgId(), id);
+        auditLogger.success("EVAL_TEMPLATE_DELETE", "EVALUATION_TEMPLATE", String.valueOf(id), "deactivated");
+        ra.addFlashAttribute("successMessage", "템플릿이 삭제되었습니다.");
+        return "redirect:/admin/evaluation/templates";
+    }
+
+    @GetMapping("/{id}/questions")
+    public String questions(@PathVariable Long id, Model model) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        model.addAttribute("template", templateService.findById(orgId, id));
+        model.addAttribute("questions", templateService.findQuestions(orgId, id));
+        model.addAttribute("request", new QuestionRequest());
+        return "admin/evaluation/templates/questions";
+    }
+
+    @PostMapping("/{id}/questions")
+    public String addQuestion(@PathVariable Long id,
+                              @Valid @ModelAttribute("request") QuestionRequest request,
+                              BindingResult br, Model model, RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        if (br.hasErrors()) {
+            model.addAttribute("template", templateService.findById(orgId, id));
+            model.addAttribute("questions", templateService.findQuestions(orgId, id));
+            return "admin/evaluation/templates/questions";
+        }
+        var question = templateService.addQuestion(orgId, id, request);
+        auditLogger.success("EVAL_QUESTION_ADD", "EVALUATION_QUESTION", String.valueOf(question.getId()), "templateId=" + id);
+        ra.addFlashAttribute("successMessage", "문항이 추가되었습니다.");
+        return "redirect:/admin/evaluation/templates/" + id + "/questions";
+    }
+
+    @PostMapping("/{id}/questions/{qId}/update")
+    public String updateQuestion(@PathVariable Long id, @PathVariable Long qId,
+                                 @Valid @ModelAttribute QuestionRequest request,
+                                 BindingResult br, RedirectAttributes ra) {
+        if (br.hasErrors()) { ra.addFlashAttribute("errorMessage", "입력값을 확인해주세요."); return "redirect:/admin/evaluation/templates/" + id + "/questions"; }
+        templateService.updateQuestion(SecurityUtils.getCurrentOrgId(), qId, request);
+        auditLogger.success("EVAL_QUESTION_UPDATE", "EVALUATION_QUESTION", String.valueOf(qId), "templateId=" + id);
+        ra.addFlashAttribute("successMessage", "문항이 수정되었습니다.");
+        return "redirect:/admin/evaluation/templates/" + id + "/questions";
+    }
+
+    @PostMapping("/{id}/questions/{qId}/delete")
+    public String deleteQuestion(@PathVariable Long id, @PathVariable Long qId, RedirectAttributes ra) {
+        templateService.deleteQuestion(SecurityUtils.getCurrentOrgId(), qId);
+        auditLogger.success("EVAL_QUESTION_DELETE", "EVALUATION_QUESTION", String.valueOf(qId), "templateId=" + id);
+        ra.addFlashAttribute("successMessage", "문항이 삭제되었습니다.");
+        return "redirect:/admin/evaluation/templates/" + id + "/questions";
+    }
+
+    @PostMapping("/{id}/questions/upload")
+    public String uploadQuestions(@PathVariable Long id,
+                                  @RequestParam MultipartFile file,
+                                  RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            uploadValidationService.validateExcelFile(file);
+            UploadResult result = questionUploadHandler.handle(orgId, id, file);
+            uploadHistoryService.record(orgId, result, SecurityUtils.getCurrentUser().getId());
+            auditLogger.success("EVAL_QUESTION_UPLOAD", "EVALUATION_TEMPLATE", String.valueOf(id),
+                    "status=" + result.getStatus());
+            ra.addFlashAttribute("uploadResult", result);
+        } catch (BusinessException e) {
+            auditLogger.fail("EVAL_QUESTION_UPLOAD", "EVALUATION_TEMPLATE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/templates/" + id + "/questions";
+    }
+}

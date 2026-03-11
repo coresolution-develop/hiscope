@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>기관 생성</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="mb-4">
+    <h4 class="fw-bold"><i class="bi bi-building-add me-2 text-primary"></i>기관 생성</h4>
+</div>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form th:action="@{/super-admin/organizations}" method="post" th:object="${request}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">기관명 <span class="text-danger">*</span></label>
+                        <input type="text" th:field="*{name}" class="form-control"
+                               th:class="${#fields.hasErrors('name')} ? 'form-control is-invalid' : 'form-control'"
+                               placeholder="예: 한국인재개발원">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">기관 코드 <span class="text-danger">*</span></label>
+                        <input type="text" th:field="*{code}" class="form-control"
+                               th:class="${#fields.hasErrors('code')} ? 'form-control is-invalid' : 'form-control'"
+                               placeholder="예: KIDR (영문 대문자, 숫자, _ 만 가능)">
+                        <div class="form-text text-muted">2~20자, 영문 대문자/숫자/밑줄</div>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('code')}" th:errors="*{code}"></div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>생성</button>
+                        <a href="/super-admin/organizations" class="btn btn-outline-secondary">취소</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

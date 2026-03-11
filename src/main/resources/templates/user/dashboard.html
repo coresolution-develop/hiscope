@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>나의 평가 홈</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="mb-4">
+    <h4 class="fw-bold"><i class="bi bi-house me-2 text-primary"></i>나의 평가 현황</h4>
+</div>
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 bg-warning text-dark p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="display-5 fw-bold" th:text="${pendingCount}">0</div>
+                    <div class="small opacity-75">미제출 평가</div>
+                </div>
+                <i class="bi bi-pencil-square display-4 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 bg-success text-white p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="display-5 fw-bold" th:text="${submittedCount}">0</div>
+                    <div class="small opacity-75">제출 완료</div>
+                </div>
+                <i class="bi bi-check2-circle display-4 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">나의 평가 목록</div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>피평가자 ID</th><th>세션 ID</th><th>상태</th><th>제출일</th><th>액션</th></tr></thead>
+            <tbody>
+            <tr th:each="a : ${assignments}">
+                <td th:text="${a.evaluateeId}"></td>
+                <td th:text="${a.sessionId}"></td>
+                <td>
+                    <span th:text="${a.status == 'PENDING'} ? '미제출' : '제출완료'"
+                          th:class="${a.status == 'PENDING'} ? 'badge bg-warning text-dark' : 'badge bg-success'"></span>
+                </td>
+                <td class="small text-muted"
+                    th:text="${a.submittedAt != null} ? ${#temporals.format(a.submittedAt, 'MM-dd HH:mm')} : '-'"></td>
+                <td>
+                    <a th:href="@{/user/evaluations/{id}(id=${a.id})}"
+                       th:text="${a.status == 'PENDING'} ? '평가하기' : '내용 보기'"
+                       class="btn btn-sm"
+                       th:class="${a.status == 'PENDING'} ? 'btn btn-primary btn-sm' : 'btn btn-outline-secondary btn-sm'"></a>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(assignments)}">
+                <td colspan="5" class="text-center text-muted py-4">배정된 평가가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

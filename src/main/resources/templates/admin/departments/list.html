@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>부서 관리</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-diagram-3 me-2 text-primary"></i>부서 관리</h4>
+    <div class="d-flex gap-2">
+        <form action="/admin/uploads/departments" method="post" enctype="multipart/form-data" class="d-flex gap-2">
+            <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" style="width:220px">
+            <button type="submit" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-upload me-1"></i>엑셀 업로드
+            </button>
+        </form>
+        <a href="/admin/uploads/template/departments" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i>템플릿
+        </a>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addDeptModal">
+            <i class="bi bi-plus-lg me-1"></i>부서 추가
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>부서명</th><th>코드</th><th>상위 부서</th><th>상태</th><th width="160">관리</th></tr></thead>
+            <tbody>
+            <tr th:each="dept : ${departments}">
+                <td class="fw-semibold" th:text="${dept.name}"></td>
+                <td><code th:text="${dept.code}"></code></td>
+                <td th:text="${dept.parentName} ?: '-'" class="text-muted small"></td>
+                <td><span th:text="${dept.active} ? '활성' : '비활성'"
+                          th:class="${dept.active} ? 'badge bg-success' : 'badge bg-secondary'"></span></td>
+                <td>
+                    <button class="btn btn-outline-secondary btn-sm me-1"
+                            th:attr="onclick=|openEditModal(${dept.id}, '${dept.name}', '${dept.code}', ${dept.parentId})|">수정</button>
+                    <form th:action="@{/admin/departments/{id}/delete(id=${dept.id})}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                    </form>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(departments)}">
+                <td colspan="5" class="text-center text-muted py-4">등록된 부서가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 부서 추가 모달 -->
+<div class="modal fade" id="addDeptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">부서 추가</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form th:action="@{/admin/departments}" method="post" th:object="${request}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">부서명 *</label>
+                        <input type="text" th:field="*{name}" class="form-control" placeholder="부서명">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">부서 코드 *</label>
+                        <input type="text" th:field="*{code}" class="form-control" placeholder="예: HR (영문 대문자)">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">상위 부서</label>
+                        <select th:field="*{parentId}" class="form-select">
+                            <option value="">없음 (최상위 부서)</option>
+                            <option th:each="dept : ${departments}" th:value="${dept.id}" th:text="${dept.name}"></option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 부서 수정 모달 -->
+<div class="modal fade" id="editDeptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">부서 수정</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="editDeptForm" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">부서명 *</label>
+                        <input type="text" id="editName" name="name" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">부서 코드 *</label>
+                        <input type="text" id="editCode" name="code" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">상위 부서</label>
+                        <select id="editParentId" name="parentId" class="form-select">
+                            <option value="">없음</option>
+                            <option th:each="dept : ${departments}" th:value="${dept.id}" th:text="${dept.name}"></option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts">
+<script>
+function openEditModal(id, name, code, parentId) {
+    document.getElementById('editDeptForm').action = '/admin/departments/' + id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editCode').value = code;
+    document.getElementById('editParentId').value = parentId || '';
+    new bootstrap.Modal(document.getElementById('editDeptModal')).show();
+}
+</script>
+</th:block>
+</html>

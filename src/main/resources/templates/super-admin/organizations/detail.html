@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>기관 상세</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="/super-admin/organizations" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0 fw-bold" th:text="${organization.name}"></h4>
+    <span th:text="${organization.status == 'ACTIVE'} ? '활성' : '비활성'"
+          th:class="${organization.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span>
+</div>
+<div class="row g-4">
+    <!-- 기관 정보 -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header fw-semibold">기관 정보</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 small text-muted">기관 코드</dt>
+                    <dd class="col-7"><code th:text="${organization.code}"></code></dd>
+                    <dt class="col-5 small text-muted">등록일</dt>
+                    <dd class="col-7 small" th:text="${#temporals.format(organization.createdAt, 'yyyy-MM-dd')}"></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <!-- 기관 관리자 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">기관 관리자</span>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAdminModal">
+                    <i class="bi bi-person-plus me-1"></i>관리자 추가
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>이름</th><th>로그인 ID</th><th>이메일</th><th>상태</th><th>등록일</th></tr></thead>
+                    <tbody>
+                    <tr th:each="admin : ${admins}">
+                        <td th:text="${admin.name}"></td>
+                        <td><code th:text="${admin.loginId}"></code></td>
+                        <td th:text="${admin.email}"></td>
+                        <td><span th:text="${admin.status == 'ACTIVE'} ? '활성' : '비활성'"
+                                  th:class="${admin.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span></td>
+                        <td th:text="${#temporals.format(admin.createdAt, 'yyyy-MM-dd')}"></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(admins)}">
+                        <td colspan="5" class="text-center text-muted py-3">등록된 관리자가 없습니다.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 관리자 추가 모달 -->
+<div class="modal fade" id="addAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">기관 관리자 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/super-admin/organizations/{id}/admins(id=${organization.id})}" method="post" th:object="${adminRequest}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">이름 *</label>
+                        <input type="text" th:field="*{name}" class="form-control" placeholder="이름">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">로그인 ID *</label>
+                        <input type="text" th:field="*{loginId}" class="form-control" placeholder="로그인 ID">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">비밀번호 *</label>
+                        <input type="password" th:field="*{password}" class="form-control" placeholder="비밀번호 (8자 이상)">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">이메일</label>
+                        <input type="email" th:field="*{email}" class="form-control" placeholder="이메일">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>기관 관리</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-building me-2 text-primary"></i>기관 관리</h4>
+    <a href="/super-admin/organizations/new" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>기관 생성
+    </a>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>기관명</th><th>코드</th><th>상태</th><th>생성일</th><th width="180">관리</th></tr></thead>
+            <tbody>
+            <tr th:each="org : ${organizations}">
+                <td class="fw-semibold" th:text="${org.name}"></td>
+                <td><code th:text="${org.code}"></code></td>
+                <td><span th:text="${org.status == 'ACTIVE'} ? '활성' : '비활성'"
+                          th:class="${org.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span></td>
+                <td th:text="${#temporals.format(org.createdAt, 'yyyy-MM-dd')}"></td>
+                <td>
+                    <a th:href="@{/super-admin/organizations/{id}(id=${org.id})}" class="btn btn-outline-primary btn-sm me-1">상세</a>
+                    <form th:action="@{/super-admin/organizations/{id}/status(id=${org.id})}" method="post" class="d-inline">
+                        <input type="hidden" name="status" th:value="${org.status == 'ACTIVE'} ? 'INACTIVE' : 'ACTIVE'"/>
+                        <button type="submit" class="btn btn-sm"
+                                th:class="${org.status == 'ACTIVE'} ? 'btn-outline-warning btn-sm' : 'btn-outline-success btn-sm'"
+                                th:text="${org.status == 'ACTIVE'} ? '비활성화' : '활성화'"
+                                onclick="return confirm('상태를 변경하시겠습니까?')"></button>
+                    </form>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(organizations)}">
+                <td colspan="5" class="text-center text-muted py-4">등록된 기관이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

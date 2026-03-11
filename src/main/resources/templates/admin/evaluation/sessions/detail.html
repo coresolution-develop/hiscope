@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head>
+    <title>평가 세션 상세</title>
+</head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a href="/admin/evaluation/sessions" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="flex-grow-1">
+            <h4 class="mb-0 fw-bold" th:text="${evalSession.name}">세션명</h4>
+            <small class="text-muted" th:text="${evalSession.startDate + ' ~ ' + evalSession.endDate}">기간</small>
+        </div>
+        <span class="badge bg-secondary fs-6" th:if="${evalSession.status == 'PENDING'}">대기</span>
+        <span class="badge bg-primary fs-6" th:if="${evalSession.status == 'IN_PROGRESS'}">진행 중</span>
+        <span class="badge bg-success fs-6" th:if="${evalSession.status == 'CLOSED'}">종료</span>
+    </div>
+
+    <div class="row g-3 mb-4" th:if="${assignmentRows != null}">
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body py-3">
+                    <div class="small text-muted">전체 배정</div>
+                    <div class="h4 mb-0" th:text="${totalAssignmentCount}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body py-3">
+                    <div class="small text-muted">제출 완료</div>
+                    <div class="h4 mb-0 text-success" th:text="${submittedAssignmentCount}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body py-3">
+                    <div class="small text-muted">미제출</div>
+                    <div class="h4 mb-0 text-danger" th:text="${pendingAssignmentCount}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body py-3">
+                    <div class="small text-muted">진행률</div>
+                    <div class="h4 mb-0" th:text="${assignmentProgressRate + '%'}">0%</div>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-success"
+                             role="progressbar"
+                             th:style="'width:' + ${assignmentProgressRate} + '%'"
+                             th:aria-valuenow="${assignmentProgressRate}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5 small text-muted">상태</dt>
+                        <dd class="col-7" th:text="${evalSession.status}">PENDING</dd>
+                        <dt class="col-5 small text-muted">재제출</dt>
+                        <dd class="col-7">
+                            <span th:text="${evalSession.allowResubmit == true ? '허용' : '불가'}">불가</span>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-grid gap-2">
+                        <a th:href="@{/admin/evaluation/sessions/{id}/relationships(id=${evalSession.id})}"
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-diagram-2 me-1"></i>평가 관계 관리
+                        </a>
+                        <form th:if="${evalSession.pending}"
+                              th:action="@{/admin/evaluation/sessions/{id}/start(id=${evalSession.id})}"
+                              method="post">
+                            <button type="submit" class="btn btn-success btn-sm w-100"
+                                    onclick="return confirm('평가를 시작하면 배정이 확정됩니다. 계속하시겠습니까?')">
+                                <i class="bi bi-play-fill me-1"></i>평가 시작
+                            </button>
+                        </form>
+                        <form th:if="${evalSession.inProgress}"
+                              th:action="@{/admin/evaluation/sessions/{id}/close(id=${evalSession.id})}"
+                              method="post">
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                                    onclick="return confirm('평가를 종료하시겠습니까?')">
+                                <i class="bi bi-stop-fill me-1"></i>평가 종료
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8" th:if="${assignmentRows != null}">
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">미제출자 우선 확인</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                        <tr>
+                            <th>평가자</th>
+                            <th>미제출 건수</th>
+                            <th>전체 배정</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="p : ${pendingEvaluators}">
+                            <td th:text="${p.evaluatorName}">홍길동</td>
+                            <td><span class="badge bg-danger" th:text="${p.pendingCount}">0</span></td>
+                            <td th:text="${p.totalCount}">0</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(pendingEvaluators)}">
+                            <td colspan="3" class="text-center text-muted py-3">모든 평가자가 제출을 완료했습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header fw-semibold">배정 현황</div>
+                <div class="card-body border-bottom">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label for="assignmentKeyword" class="form-label small text-muted mb-1">평가자/피평가자 검색</label>
+                            <input id="assignmentKeyword" type="text" class="form-control form-control-sm" placeholder="이름 키워드">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="assignmentStatusFilter" class="form-label small text-muted mb-1">상태</label>
+                            <select id="assignmentStatusFilter" class="form-select form-select-sm">
+                                <option value="">전체</option>
+                                <option value="PENDING">미제출</option>
+                                <option value="SUBMITTED">제출완료</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <div class="small text-muted">결과</div>
+                            <div class="fw-semibold" id="visibleAssignmentCount" th:text="${#lists.size(assignmentRows)}">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                        <tr>
+                            <th>평가자</th>
+                            <th>피평가자</th>
+                            <th>상태</th>
+                            <th>제출일</th>
+                        </tr>
+                        </thead>
+                        <tbody id="assignmentTableBody">
+                        <tr th:each="a : ${assignmentRows}"
+                            class="assignment-row"
+                            th:attr="data-status=${a.status},data-keyword=${#strings.toLowerCase(a.evaluatorName + ' ' + a.evaluateeName)}">
+                            <td th:text="${a.evaluatorName}">평가자</td>
+                            <td th:text="${a.evaluateeName}">피평가자</td>
+                            <td>
+                                <span class="badge bg-secondary" th:if="${a.status == 'PENDING'}">대기</span>
+                                <span class="badge bg-success" th:if="${a.status != 'PENDING'}">제출완료</span>
+                            </td>
+                            <td class="small text-muted" th:text="${a.submittedAt != null ? #temporals.format(a.submittedAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(assignmentRows)}">
+                            <td colspan="4" class="text-center text-muted py-3">배정 없음</td>
+                        </tr>
+                        <tr id="noAssignmentResultRow" style="display:none;">
+                            <td colspan="4" class="text-center text-muted py-3">검색 조건에 맞는 배정이 없습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+<th:block th:fragment="scripts">
+    <script>
+        (function () {
+            const rows = Array.from(document.querySelectorAll('.assignment-row'));
+            if (!rows.length) {
+                return;
+            }
+            const keywordEl = document.getElementById('assignmentKeyword');
+            const statusEl = document.getElementById('assignmentStatusFilter');
+            const countEl = document.getElementById('visibleAssignmentCount');
+            const noResultRow = document.getElementById('noAssignmentResultRow');
+
+            function applyFilters() {
+                const keyword = (keywordEl.value || '').trim().toLowerCase();
+                const status = statusEl.value || '';
+                let visible = 0;
+
+                rows.forEach((row) => {
+                    const rowStatus = row.dataset.status || '';
+                    const rowKeyword = row.dataset.keyword || '';
+                    const matched = (!keyword || rowKeyword.includes(keyword))
+                        && (!status || rowStatus === status);
+                    row.style.display = matched ? '' : 'none';
+                    if (matched) {
+                        visible += 1;
+                    }
+                });
+
+                if (countEl) {
+                    countEl.textContent = String(visible);
+                }
+                if (noResultRow) {
+                    noResultRow.style.display = visible === 0 ? '' : 'none';
+                }
+            }
+
+            keywordEl.addEventListener('input', applyFilters);
+            statusEl.addEventListener('change', applyFilters);
+            applyFilters();
+        }());
+    </script>
+</th:block>
+</html>

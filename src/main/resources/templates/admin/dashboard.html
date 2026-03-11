@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>기관 관리자 대시보드</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="mb-4">
+    <h4 class="fw-bold"><i class="bi bi-speedometer2 me-2 text-primary"></i>대시보드</h4>
+</div>
+<!-- 요약 카드 -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 bg-primary text-white p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="display-5 fw-bold" th:text="${dashboard.totalEmployees}">0</div>
+                    <div class="small opacity-75">재직 직원 수</div>
+                </div>
+                <i class="bi bi-people display-4 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 bg-success text-white p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="display-5 fw-bold" th:text="${dashboard.totalDepartments}">0</div>
+                    <div class="small opacity-75">활성 부서 수</div>
+                </div>
+                <i class="bi bi-diagram-3 display-4 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 bg-warning text-dark p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="display-5 fw-bold" th:text="${dashboard.activeSessions}">0</div>
+                    <div class="small opacity-75">진행 중 평가 세션</div>
+                </div>
+                <i class="bi bi-calendar3 display-4 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 평가 세션 현황 -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-bar-chart me-2"></i>평가 세션 현황</span>
+        <a href="/admin/evaluation/sessions" class="btn btn-outline-primary btn-sm">전체 보기</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>세션명</th><th>상태</th><th>전체</th><th>제출</th><th>제출률</th></tr></thead>
+            <tbody>
+            <tr th:each="sp : ${dashboard.sessionProgressList}">
+                <td>
+                    <a th:href="@{/admin/evaluation/sessions/{id}(id=${sp.sessionId})}"
+                       th:text="${sp.sessionName}" class="text-decoration-none fw-semibold"></a>
+                </td>
+                <td>
+                    <span th:text="${sp.status == 'PENDING'} ? '대기' : (${sp.status == 'IN_PROGRESS'} ? '진행 중' : '종료')"
+                          th:class="${sp.status == 'PENDING'} ? 'badge bg-secondary' : (${sp.status == 'IN_PROGRESS'} ? 'badge bg-primary' : 'badge bg-success')"></span>
+                </td>
+                <td th:text="${sp.totalAssignments}"></td>
+                <td th:text="${sp.submittedAssignments}"></td>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="progress flex-grow-1" style="height: 8px;">
+                            <div class="progress-bar" th:style="'width:' + ${sp.submissionRate} + '%'"></div>
+                        </div>
+                        <small th:text="${sp.submissionRate} + '%'" class="text-nowrap"></small>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(dashboard.sessionProgressList)}">
+                <td colspan="5" class="text-center text-muted py-4">평가 세션이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

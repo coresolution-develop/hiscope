@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>평가 관계 관리</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a th:href="@{/admin/evaluation/sessions/{id}(id=${evalSession.id})}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+    <div>
+        <h4 class="mb-0 fw-bold">평가 관계 관리</h4>
+        <small class="text-muted" th:text="${evalSession.name}"></small>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">전체 관계</div>
+                <div class="h4 mb-0" th:text="${totalRelationshipCount}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">활성 관계</div>
+                <div class="h4 mb-0 text-success" th:text="${activeRelationshipCount}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">자동 생성</div>
+                <div class="h4 mb-0 text-primary" th:text="${autoRelationshipCount}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">수동 추가</div>
+                <div class="h4 mb-0 text-dark" th:text="${manualRelationshipCount}">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 관계 목록 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">
+                    평가 관계 (<span th:text="${totalRelationshipCount}">0</span>개,
+                    활성: <span th:text="${activeRelationshipCount}">0</span>개)
+                </span>
+                <form th:if="${evalSession.pending}"
+                      th:action="@{/admin/evaluation/sessions/{id}/relationships/auto-generate(id=${evalSession.id})}"
+                      method="post">
+                    <input type="hidden" name="page" th:value="${page}">
+                    <input type="hidden" name="size" th:value="${size}">
+                    <input type="hidden" name="keyword" th:value="${keyword}">
+                    <input type="hidden" name="relationType" th:value="${relationType}">
+                    <input type="hidden" name="source" th:value="${source}">
+                    <input type="hidden" name="active" th:value="${active}">
+                    <input type="hidden" name="sortBy" th:value="${sortBy}">
+                    <input type="hidden" name="sortDir" th:value="${sortDir}">
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="return confirm('자동으로 평가 관계를 생성합니다. 기존 자동 생성 관계는 재생성됩니다. 계속하시겠습니까?')">
+                        <i class="bi bi-magic me-1"></i>자동 생성
+                    </button>
+                </form>
+            </div>
+            <div class="card-body border-bottom py-3">
+                <form method="get"
+                      th:action="@{/admin/evaluation/sessions/{id}/relationships(id=${evalSession.id})}"
+                      class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label for="relationshipKeyword" class="form-label small text-muted mb-1">직원 검색</label>
+                        <input id="relationshipKeyword"
+                               type="text"
+                               class="form-control form-control-sm"
+                               name="keyword"
+                               th:value="${keyword}"
+                               placeholder="평가자/피평가자 이름">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="relationTypeFilter" class="form-label small text-muted mb-1">유형</label>
+                        <select id="relationTypeFilter" name="relationType" class="form-select form-select-sm">
+                            <option value="">전체</option>
+                            <option value="UPWARD" th:selected="${relationType == 'UPWARD'}">상향</option>
+                            <option value="DOWNWARD" th:selected="${relationType == 'DOWNWARD'}">하향</option>
+                            <option value="PEER" th:selected="${relationType == 'PEER'}">동료</option>
+                            <option value="CROSS_DEPT" th:selected="${relationType == 'CROSS_DEPT'}">부서간</option>
+                            <option value="MANUAL" th:selected="${relationType == 'MANUAL'}">수동</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="sourceFilter" class="form-label small text-muted mb-1">출처</label>
+                        <select id="sourceFilter" name="source" class="form-select form-select-sm">
+                            <option value="">전체</option>
+                            <option value="AUTO_GENERATED" th:selected="${source == 'AUTO_GENERATED'}">자동</option>
+                            <option value="ADMIN_ADDED" th:selected="${source == 'ADMIN_ADDED'}">수동</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label for="activeFilter" class="form-label small text-muted mb-1">활성</label>
+                        <select id="activeFilter" name="active" class="form-select form-select-sm">
+                            <option value="">전체</option>
+                            <option value="true" th:selected="${active == true}">활성</option>
+                            <option value="false" th:selected="${active == false}">비활성</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted mb-1">정렬 기준</label>
+                        <select class="form-select form-select-sm" name="sortBy">
+                            <option value="relationType" th:selected="${sortBy == 'relationType'}">유형</option>
+                            <option value="source" th:selected="${sortBy == 'source'}">출처</option>
+                            <option value="active" th:selected="${sortBy == 'active'}">활성</option>
+                            <option value="createdAt" th:selected="${sortBy == 'createdAt'}">생성시각</option>
+                            <option value="evaluatorId" th:selected="${sortBy == 'evaluatorId'}">평가자ID</option>
+                            <option value="evaluateeId" th:selected="${sortBy == 'evaluateeId'}">피평가자ID</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small text-muted mb-1">방향</label>
+                        <select class="form-select form-select-sm" name="sortDir">
+                            <option value="asc" th:selected="${sortDir == 'asc'}">오름</option>
+                            <option value="desc" th:selected="${sortDir == 'desc'}">내림</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1 text-end">
+                        <input type="hidden" name="size" th:value="${size}">
+                        <button type="submit" class="btn btn-outline-primary btn-sm">적용</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr><th>평가자</th><th>피평가자</th><th>유형</th><th>출처</th><th>활성</th><th th:if="${evalSession.pending}">관리</th></tr></thead>
+                    <tbody>
+                    <tr th:each="r : ${relationships}"
+                        th:classappend="${!r.active} ? ' table-secondary text-muted' : ''">
+                        <td>
+                            <div class="fw-semibold" th:text="${employeeNameMap[r.evaluatorId] ?: ('직원#' + r.evaluatorId)}"></div>
+                            <div class="small text-muted" th:text="${employeeDeptMap[r.evaluatorId] ?: '-'}"></div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold" th:text="${employeeNameMap[r.evaluateeId] ?: ('직원#' + r.evaluateeId)}"></div>
+                            <div class="small text-muted" th:text="${employeeDeptMap[r.evaluateeId] ?: '-'}"></div>
+                        </td>
+                        <td th:switch="${r.relationType}">
+                            <span th:case="'UPWARD'" class="badge bg-info text-dark">상향</span>
+                            <span th:case="'DOWNWARD'" class="badge bg-warning text-dark">하향</span>
+                            <span th:case="'PEER'" class="badge bg-primary">동료</span>
+                            <span th:case="'CROSS_DEPT'" class="badge bg-success">부서간</span>
+                            <span th:case="*" class="badge bg-dark">수동</span>
+                        </td>
+                        <td>
+                            <span th:if="${r.source == 'AUTO_GENERATED'}" class="badge bg-light text-dark border">자동</span>
+                            <span th:if="${r.source != 'AUTO_GENERATED'}" class="badge bg-dark">수동</span>
+                        </td>
+                        <td>
+                            <span th:if="${r.active}" class="badge bg-success">활성</span>
+                            <span th:if="${!r.active}" class="badge bg-secondary">비활성</span>
+                        </td>
+                        <td th:if="${evalSession.pending}">
+                            <form th:action="@{/admin/evaluation/sessions/{sid}/relationships/{rid}/delete(sid=${evalSession.id},rid=${r.id})}"
+                                  method="post" class="d-inline">
+                                <input type="hidden" name="page" th:value="${page}">
+                                <input type="hidden" name="size" th:value="${size}">
+                                <input type="hidden" name="keyword" th:value="${keyword}">
+                                <input type="hidden" name="relationType" th:value="${relationType}">
+                                <input type="hidden" name="source" th:value="${source}">
+                                <input type="hidden" name="active" th:value="${active}">
+                                <input type="hidden" name="sortBy" th:value="${sortBy}">
+                                <input type="hidden" name="sortDir" th:value="${sortDir}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                        onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(relationships)}">
+                        <td colspan="6" class="text-center text-muted py-4">
+                            평가 관계가 없습니다. [자동 생성] 버튼을 클릭해주세요.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3" th:if="${relationshipPage != null}">
+            <div class="small text-muted">
+                총 <span th:text="${relationshipPage.totalElements}">0</span>건 /
+                <span th:text="${relationshipPage.number + 1}">1</span> / <span th:text="${relationshipPage.totalPages}">1</span> 페이지
+            </div>
+            <nav th:if="${relationshipPage.totalPages > 1}">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item" th:classappend="${relationshipPage.first} ? ' disabled'">
+                        <a class="page-link"
+                           th:href="@{/admin/evaluation/sessions/{id}/relationships(id=${evalSession.id},page=${relationshipPage.number - 1},size=${size},keyword=${keyword},relationType=${relationType},source=${source},active=${active},sortBy=${sortBy},sortDir=${sortDir})}">이전</a>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link" th:text="|${relationshipPage.number + 1} / ${relationshipPage.totalPages}|">1 / 1</span>
+                    </li>
+                    <li class="page-item" th:classappend="${relationshipPage.last} ? ' disabled'">
+                        <a class="page-link"
+                           th:href="@{/admin/evaluation/sessions/{id}/relationships(id=${evalSession.id},page=${relationshipPage.number + 1},size=${size},keyword=${keyword},relationType=${relationType},source=${source},active=${active},sortBy=${sortBy},sortDir=${sortDir})}">다음</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 수동 추가 -->
+    <div class="col-md-4" th:if="${evalSession.pending}">
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-person-plus me-1"></i>수동 추가</div>
+            <div class="card-body">
+                <form th:action="@{/admin/evaluation/sessions/{id}/relationships/manual(id=${evalSession.id})}"
+                      method="post" th:object="${request}">
+                    <input type="hidden" name="page" th:value="${page}">
+                    <input type="hidden" name="size" th:value="${size}">
+                    <input type="hidden" name="keyword" th:value="${keyword}">
+                    <input type="hidden" name="relationType" th:value="${relationType}">
+                    <input type="hidden" name="source" th:value="${source}">
+                    <input type="hidden" name="active" th:value="${active}">
+                    <input type="hidden" name="sortBy" th:value="${sortBy}">
+                    <input type="hidden" name="sortDir" th:value="${sortDir}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">평가자 (평가를 수행하는 사람) *</label>
+                        <select th:field="*{evaluatorId}" class="form-select form-select-sm"
+                                th:classappend="${#fields.hasErrors('evaluatorId')} ? ' is-invalid' : ''">
+                            <option value="">선택</option>
+                            <option th:each="emp : ${employees}" th:value="${emp.id}"
+                                    th:text="${emp.name + ' (' + emp.departmentName + ' / ' + emp.jobTitle + ')'}"></option>
+                        </select>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('evaluatorId')}" th:errors="*{evaluatorId}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">피평가자 (평가를 받는 사람) *</label>
+                        <select th:field="*{evaluateeId}" class="form-select form-select-sm"
+                                th:classappend="${#fields.hasErrors('evaluateeId')} ? ' is-invalid' : ''">
+                            <option value="">선택</option>
+                            <option th:each="emp : ${employees}" th:value="${emp.id}"
+                                    th:text="${emp.name + ' (' + emp.departmentName + ' / ' + emp.jobTitle + ')'}"></option>
+                        </select>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('evaluateeId')}" th:errors="*{evaluateeId}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <p class="small text-muted mb-0">
+                            <i class="bi bi-info-circle me-1"></i>수동 추가된 관계는 자동 생성 시에도 삭제되지 않습니다.
+                        </p>
+                    </div>
+                    <button type="submit" class="btn btn-dark btn-sm w-100">
+                        <i class="bi bi-plus-lg me-1"></i>관계 추가
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

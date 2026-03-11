@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>문항 관리</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="/admin/evaluation/templates" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+    <div>
+        <h4 class="mb-0 fw-bold" th:text="${template.name}"></h4>
+        <small class="text-muted">평가 문항 관리</small>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 문항 목록 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">문항 목록 (<span th:text="${#lists.size(questions)}">0</span>개)</span>
+                <div class="d-flex gap-2">
+                    <form th:action="@{/admin/evaluation/templates/{id}/questions/upload(id=${template.id})}"
+                          method="post" enctype="multipart/form-data" class="d-flex gap-1">
+                        <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" style="width:180px">
+                        <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-upload"></i></button>
+                    </form>
+                    <a th:href="@{/admin/uploads/template/questions}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i></a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th width="40">#</th><th>카테고리</th><th>문항 내용</th><th>유형</th><th>점수</th><th width="80">관리</th></tr></thead>
+                    <tbody>
+                    <tr th:each="q, stat : ${questions}">
+                        <td class="text-muted small" th:text="${stat.count}"></td>
+                        <td><span class="badge bg-light text-dark border" th:text="${q.category}"></span></td>
+                        <td class="small" th:text="${q.content}"></td>
+                        <td>
+                            <span th:text="${q.questionType == 'SCALE'} ? '척도' : '서술'"
+                                  th:class="${q.questionType == 'SCALE'} ? 'badge bg-primary' : 'badge bg-info text-dark'"></span>
+                        </td>
+                        <td th:text="${q.maxScore != null} ? ${q.maxScore} + '점' : '-'" class="small"></td>
+                        <td>
+                            <form th:action="@{/admin/evaluation/templates/{tid}/questions/{qid}/delete(tid=${template.id},qid=${q.id})}" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                        onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(questions)}">
+                        <td colspan="6" class="text-center text-muted py-4">등록된 문항이 없습니다.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 문항 추가 폼 -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header fw-semibold">문항 추가</div>
+            <div class="card-body">
+                <form th:action="@{/admin/evaluation/templates/{id}/questions(id=${template.id})}"
+                      method="post" th:object="${request}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">카테고리 *</label>
+                        <select th:field="*{category}" class="form-select form-select-sm">
+                            <option value="">선택</option>
+                            <option>공통역량</option><option>협업</option><option>리더십</option><option>정성평가</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">문항 내용 *</label>
+                        <textarea th:field="*{content}" class="form-control form-control-sm" rows="3"
+                                  placeholder="평가 문항을 입력하세요"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">문항 유형 *</label>
+                        <select th:field="*{questionType}" class="form-select form-select-sm" id="questionType"
+                                onchange="toggleMaxScore(this.value)">
+                            <option value="SCALE">척도형 (점수)</option>
+                            <option value="DESCRIPTIVE">서술형 (텍스트)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="maxScoreDiv">
+                        <label class="form-label fw-semibold small">최대 점수</label>
+                        <input type="number" th:field="*{maxScore}" class="form-control form-control-sm"
+                               min="1" max="10" placeholder="예: 5">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">정렬 순서</label>
+                        <input type="number" th:field="*{sortOrder}" class="form-control form-control-sm" min="0">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-plus-lg me-1"></i>문항 추가
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts">
+<script>
+function toggleMaxScore(type) {
+    document.getElementById('maxScoreDiv').style.display = type === 'SCALE' ? 'block' : 'none';
+}
+</script>
+</th:block>
+</html>

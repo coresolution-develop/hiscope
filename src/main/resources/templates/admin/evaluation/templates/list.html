@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>평가 템플릿</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-file-text me-2 text-primary"></i>평가 템플릿 관리</h4>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTemplateModal">
+        <i class="bi bi-plus-lg me-1"></i>템플릿 생성
+    </button>
+</div>
+<div class="row g-3">
+    <div th:each="t : ${templates}" class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title fw-bold mb-0" th:text="${t.name}"></h6>
+                    <span th:text="${t.active} ? '활성' : '비활성'"
+                          th:class="${t.active} ? 'badge bg-success' : 'badge bg-secondary'"></span>
+                </div>
+                <p class="card-text text-muted small" th:text="${t.description} ?: '설명 없음'"></p>
+                <p class="card-text small text-muted">
+                    생성일: <span th:text="${#temporals.format(t.createdAt, 'yyyy-MM-dd')}"></span>
+                </p>
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a th:href="@{/admin/evaluation/templates/{id}/questions(id=${t.id})}"
+                   class="btn btn-outline-primary btn-sm flex-grow-1">
+                    <i class="bi bi-list-check me-1"></i>문항 관리
+                </a>
+                <form th:action="@{/admin/evaluation/templates/{id}/delete(id=${t.id})}" method="post">
+                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-12" th:if="${#lists.isEmpty(templates)}">
+        <div class="text-center text-muted py-5">등록된 템플릿이 없습니다. 새 템플릿을 생성해주세요.</div>
+    </div>
+</div>
+
+<!-- 템플릿 생성 모달 -->
+<div class="modal fade" id="addTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">템플릿 생성</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form th:action="@{/admin/evaluation/templates}" method="post" th:object="${request}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">템플릿명 *</label>
+                        <input type="text" th:field="*{name}" class="form-control" placeholder="예: 2026 상반기 다면평가 템플릿">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">설명</label>
+                        <textarea th:field="*{description}" class="form-control" rows="3" placeholder="템플릿 설명"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">생성</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

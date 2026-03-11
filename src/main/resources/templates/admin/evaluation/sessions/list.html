@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>평가 세션</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2 text-primary"></i>평가 세션 관리</h4>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createSessionModal">
+        <i class="bi bi-plus-lg me-1"></i>세션 생성
+    </button>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">전체 세션</div>
+                <div class="h4 mb-0" th:text="${totalSessionCount}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">대기</div>
+                <div class="h4 mb-0 text-secondary" th:text="${pendingSessionCount}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">진행 중</div>
+                <div class="h4 mb-0 text-primary" th:text="${inProgressSessionCount}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">종료</div>
+                <div class="h4 mb-0 text-success" th:text="${closedSessionCount}">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" th:action="@{/admin/evaluation/sessions}" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label for="sessionKeyword" class="form-label small text-muted mb-1">세션명 검색</label>
+                <input id="sessionKeyword"
+                       name="keyword"
+                       th:value="${keyword}"
+                       type="text"
+                       class="form-control form-control-sm"
+                       placeholder="세션명 키워드">
+            </div>
+            <div class="col-md-2">
+                <label for="sessionStatusFilter" class="form-label small text-muted mb-1">상태</label>
+                <select id="sessionStatusFilter" name="status" class="form-select form-select-sm">
+                    <option value="">전체</option>
+                    <option value="PENDING" th:selected="${status == 'PENDING'}">대기</option>
+                    <option value="IN_PROGRESS" th:selected="${status == 'IN_PROGRESS'}">진행 중</option>
+                    <option value="CLOSED" th:selected="${status == 'CLOSED'}">종료</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="resubmitFilter" class="form-label small text-muted mb-1">재제출 허용</label>
+                <select id="resubmitFilter" name="allowResubmit" class="form-select form-select-sm">
+                    <option value="">전체</option>
+                    <option value="true" th:selected="${allowResubmit == true}">허용</option>
+                    <option value="false" th:selected="${allowResubmit == false}">불가</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">정렬 기준</label>
+                <select class="form-select form-select-sm" name="sortBy">
+                    <option value="createdAt" th:selected="${sortBy == 'createdAt'}">생성일</option>
+                    <option value="name" th:selected="${sortBy == 'name'}">세션명</option>
+                    <option value="status" th:selected="${sortBy == 'status'}">상태</option>
+                    <option value="startDate" th:selected="${sortBy == 'startDate'}">시작일</option>
+                    <option value="endDate" th:selected="${sortBy == 'endDate'}">종료일</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">방향</label>
+                <select class="form-select form-select-sm" name="sortDir">
+                    <option value="desc" th:selected="${sortDir == 'desc'}">내림</option>
+                    <option value="asc" th:selected="${sortDir == 'asc'}">오름</option>
+                </select>
+            </div>
+            <div class="col-md-1 text-end">
+                <input type="hidden" name="size" th:value="${size}">
+                <button type="submit" class="btn btn-outline-primary btn-sm">적용</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>세션명</th><th>기간</th><th>상태</th><th>재제출</th><th>생성일</th><th width="200">관리</th></tr></thead>
+            <tbody id="sessionTableBody">
+            <tr th:each="s : ${sessions}">
+                <td>
+                    <a th:href="@{/admin/evaluation/sessions/{id}(id=${s.id})}"
+                       th:text="${s.name}" class="text-decoration-none fw-semibold"></a>
+                </td>
+                <td class="small text-muted">
+                    <span th:text="${s.startDate}"></span> ~
+                    <span th:text="${s.endDate}"></span>
+                </td>
+                <td>
+                    <span th:text="${s.status == 'PENDING'} ? '대기' : (${s.status == 'IN_PROGRESS'} ? '진행 중' : '종료')"
+                          th:class="${s.status == 'PENDING'} ? 'badge bg-secondary' : (${s.status == 'IN_PROGRESS'} ? 'badge bg-primary' : 'badge bg-success')"></span>
+                </td>
+                <td><span th:text="${s.allowResubmit} ? '허용' : '불가'"
+                          th:class="${s.allowResubmit} ? 'badge bg-info text-dark' : 'badge bg-light text-dark border'"></span></td>
+                <td class="small" th:text="${#temporals.format(s.createdAt, 'yyyy-MM-dd')}"></td>
+                <td>
+                    <a th:href="@{/admin/evaluation/sessions/{id}(id=${s.id})}" class="btn btn-outline-secondary btn-sm me-1">상세</a>
+                    <a th:href="@{/admin/evaluation/sessions/{id}/relationships(id=${s.id})}" class="btn btn-outline-primary btn-sm">
+                        평가 관계
+                    </a>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(sessions)}" id="emptySessionRow">
+                <td colspan="6" class="text-center text-muted py-4">등록된 평가 세션이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="d-flex justify-content-between align-items-center mt-3" th:if="${sessionPage != null}">
+    <div class="small text-muted">
+        총 <span th:text="${sessionPage.totalElements}">0</span>건 /
+        <span th:text="${sessionPage.number + 1}">1</span> / <span th:text="${sessionPage.totalPages}">1</span> 페이지
+    </div>
+    <nav th:if="${sessionPage.totalPages > 1}">
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" th:classappend="${sessionPage.first} ? ' disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/evaluation/sessions(page=${sessionPage.number - 1},size=${size},keyword=${keyword},status=${status},allowResubmit=${allowResubmit},sortBy=${sortBy},sortDir=${sortDir})}">이전</a>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link" th:text="|${sessionPage.number + 1} / ${sessionPage.totalPages}|">1 / 1</span>
+            </li>
+            <li class="page-item" th:classappend="${sessionPage.last} ? ' disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/evaluation/sessions(page=${sessionPage.number + 1},size=${size},keyword=${keyword},status=${status},allowResubmit=${allowResubmit},sortBy=${sortBy},sortDir=${sortDir})}">다음</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<!-- 세션 생성 모달 -->
+<div class="modal fade" id="createSessionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">평가 세션 생성</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form th:action="@{/admin/evaluation/sessions}" method="post" th:object="${request}">
+                <input type="hidden" name="page" th:value="${page}">
+                <input type="hidden" name="size" th:value="${size}">
+                <input type="hidden" name="keyword" th:value="${keyword}">
+                <input type="hidden" name="status" th:value="${status}">
+                <input type="hidden" name="allowResubmit" th:value="${allowResubmit}">
+                <input type="hidden" name="sortBy" th:value="${sortBy}">
+                <input type="hidden" name="sortDir" th:value="${sortDir}">
+                <div class="modal-body">
+                    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger py-2">
+                        <span th:each="err : ${#fields.globalErrors()}" th:text="${err}"></span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">세션명 *</label>
+                            <input type="text" th:field="*{name}"
+                                   th:classappend="${#fields.hasErrors('name')} ? ' is-invalid' : ''"
+                                   class="form-control" placeholder="예: 2026년 상반기 다면평가">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">설명</label>
+                            <textarea th:field="*{description}" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">평가 시작일 *</label>
+                            <input type="date" th:field="*{startDate}"
+                                   th:classappend="${#fields.hasErrors('startDate')} ? ' is-invalid' : ''"
+                                   class="form-control">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">평가 종료일 *</label>
+                            <input type="date" th:field="*{endDate}"
+                                   th:classappend="${#fields.hasErrors('endDate')} ? ' is-invalid' : ''"
+                                   class="form-control">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">평가 템플릿 *</label>
+                            <select th:field="*{templateId}"
+                                    th:classappend="${#fields.hasErrors('templateId')} ? ' is-invalid' : ''"
+                                    class="form-select">
+                                <option value="">템플릿 선택</option>
+                                <option th:each="t : ${templates}" th:value="${t.id}" th:text="${t.name}"></option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('templateId')}" th:errors="*{templateId}"></div>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" th:field="*{allowResubmit}" class="form-check-input" id="allowResubmit">
+                                <label class="form-check-label" for="allowResubmit">제출 후 수정 허용</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">생성</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts">
+    <script th:inline="javascript">
+        (function () {
+            const openModal = [[${openCreateModal} ?: false]];
+            if (openModal) {
+                const modalEl = document.getElementById('createSessionModal');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+            }
+
+        }());
+    </script>
+</th:block>
+</html>

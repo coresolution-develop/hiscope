@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>업로드 이력</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="mb-4">
+    <h4 class="fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>업로드 이력</h4>
+    <p class="small text-muted mb-0" th:if="${historyLimit}">
+        운영 안정성을 위해 최근 <span th:text="${historyLimit}">1000</span>건만 표시됩니다.
+    </p>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">전체 업로드</div>
+                <div class="h4 mb-0" th:text="${#lists.size(histories)}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">성공</div>
+                <div class="h4 mb-0 text-success" th:text="${#lists.size(histories.?[status == 'SUCCESS'])}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">부분 성공</div>
+                <div class="h4 mb-0 text-warning" th:text="${#lists.size(histories.?[status == 'PARTIAL'])}">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body py-3">
+                <div class="small text-muted">실패</div>
+                <div class="h4 mb-0 text-danger" th:text="${#lists.size(histories.?[status == 'FAILED'])}">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label for="uploadTypeFilter" class="form-label small text-muted mb-1">유형</label>
+                <select id="uploadTypeFilter" class="form-select form-select-sm">
+                    <option value="">전체</option>
+                    <option value="DEPARTMENT">부서</option>
+                    <option value="EMPLOYEE">직원</option>
+                    <option value="QUESTION">평가문항</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="uploadStatusFilter" class="form-label small text-muted mb-1">상태</label>
+                <select id="uploadStatusFilter" class="form-select form-select-sm">
+                    <option value="">전체</option>
+                    <option value="SUCCESS">성공</option>
+                    <option value="PARTIAL">부분성공</option>
+                    <option value="FAILED">실패</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="uploadDateFrom" class="form-label small text-muted mb-1">시작일</label>
+                <input id="uploadDateFrom" type="date" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label for="uploadDateTo" class="form-label small text-muted mb-1">종료일</label>
+                <input id="uploadDateTo" type="date" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-1">
+                <label for="uploadKeyword" class="form-label small text-muted mb-1">파일명</label>
+                <input id="uploadKeyword" type="text" class="form-control form-control-sm" placeholder="검색">
+            </div>
+            <div class="col-md-1 text-end">
+                <div class="small text-muted">결과</div>
+                <div class="fw-semibold" id="visibleUploadCount" th:text="${#lists.size(histories)}">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>유형</th><th>파일명</th><th>처리 결과</th><th>성공률</th><th>상태</th><th>실패 상세</th><th>업로드 일시</th></tr></thead>
+            <tbody id="uploadTableBody">
+            <tr th:each="h : ${histories}" class="upload-row"
+                th:attr="data-type=${h.uploadType},
+                         data-status=${h.status},
+                         data-date=${#temporals.format(h.createdAt, 'yyyy-MM-dd')},
+                         data-file=${#strings.toLowerCase(h.fileName)}">
+                <td><span th:text="${h.uploadType == 'DEPARTMENT'} ? '부서' : (${h.uploadType == 'EMPLOYEE'} ? '직원' : '평가문항')"
+                          class="badge bg-light text-dark border"></span></td>
+                <td class="small" th:text="${h.fileName}"></td>
+                <td>
+                    <span class="small text-muted">전체</span> <span th:text="${h.totalRows}">0</span> /
+                    <span class="small text-success">성공</span> <span th:text="${h.successRows}">0</span> /
+                    <span class="small text-danger">실패</span> <span th:text="${h.failRows}">0</span>
+                </td>
+                <td style="min-width: 130px;">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span th:text="${h.totalRows > 0 ? (h.successRows * 100 / h.totalRows) : 0} + '%'">0%</span>
+                        <span class="text-muted" th:text="${h.successRows + '/' + h.totalRows}">0/0</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-success"
+                             role="progressbar"
+                             th:style="'width:' + ${h.totalRows > 0 ? (h.successRows * 100 / h.totalRows) : 0} + '%'"
+                             th:aria-valuenow="${h.totalRows > 0 ? (h.successRows * 100 / h.totalRows) : 0}"
+                             aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </td>
+                <td>
+                    <span th:text="${h.status == 'SUCCESS'} ? '성공' : (${h.status == 'PARTIAL'} ? '부분성공' : '실패')"
+                          th:class="${h.status == 'SUCCESS'} ? 'badge bg-success' : (${h.status == 'PARTIAL'} ? 'badge bg-warning text-dark' : 'badge bg-danger')"></span>
+                </td>
+                <td style="min-width: 180px;">
+                    <details th:if="${!#strings.isEmpty(h.errorDetail)}">
+                        <summary class="small text-danger">실패 사유 보기</summary>
+                        <pre class="small mb-0 mt-1 p-2 bg-light border rounded" style="max-height: 140px; white-space: pre-wrap;"
+                             th:text="${h.errorDetail}"></pre>
+                    </details>
+                    <span class="small text-muted" th:if="${#strings.isEmpty(h.errorDetail)}">-</span>
+                </td>
+                <td class="small text-muted" th:text="${#temporals.format(h.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(histories)}" id="emptyUploadRow">
+                <td colspan="7" class="text-center text-muted py-4">업로드 이력이 없습니다.</td>
+            </tr>
+            <tr id="noUploadResultRow" style="display:none;">
+                <td colspan="7" class="text-center text-muted py-4">검색 조건에 맞는 업로드 이력이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts">
+    <script>
+        (function () {
+            const rows = Array.from(document.querySelectorAll('.upload-row'));
+            if (!rows.length) {
+                return;
+            }
+
+            const typeEl = document.getElementById('uploadTypeFilter');
+            const statusEl = document.getElementById('uploadStatusFilter');
+            const dateFromEl = document.getElementById('uploadDateFrom');
+            const dateToEl = document.getElementById('uploadDateTo');
+            const keywordEl = document.getElementById('uploadKeyword');
+            const countEl = document.getElementById('visibleUploadCount');
+            const noResultRow = document.getElementById('noUploadResultRow');
+
+            function applyFilters() {
+                const type = typeEl.value || '';
+                const status = statusEl.value || '';
+                const dateFrom = dateFromEl.value || '';
+                const dateTo = dateToEl.value || '';
+                const keyword = (keywordEl.value || '').trim().toLowerCase();
+                let visible = 0;
+
+                rows.forEach((row) => {
+                    const rowType = row.dataset.type || '';
+                    const rowStatus = row.dataset.status || '';
+                    const rowDate = row.dataset.date || '';
+                    const rowFile = row.dataset.file || '';
+
+                    const matched = (!type || rowType === type)
+                        && (!status || rowStatus === status)
+                        && (!dateFrom || rowDate >= dateFrom)
+                        && (!dateTo || rowDate <= dateTo)
+                        && (!keyword || rowFile.includes(keyword));
+                    row.style.display = matched ? '' : 'none';
+                    if (matched) {
+                        visible += 1;
+                    }
+                });
+
+                if (countEl) {
+                    countEl.textContent = String(visible);
+                }
+                if (noResultRow) {
+                    noResultRow.style.display = visible === 0 ? '' : 'none';
+                }
+            }
+
+            typeEl.addEventListener('change', applyFilters);
+            statusEl.addEventListener('change', applyFilters);
+            dateFromEl.addEventListener('change', applyFilters);
+            dateToEl.addEventListener('change', applyFilters);
+            keywordEl.addEventListener('input', applyFilters);
+            applyFilters();
+        }());
+    </script>
+</th:block>
+</html>

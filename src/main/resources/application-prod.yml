@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    locations: classpath:db/migration/common
+
+  thymeleaf:
+    cache: true
+
+server:
+  port: ${SERVER_PORT:8099}
+  servlet:
+    session:
+      cookie:
+        secure: true
+        same-site: lax
+
+logging:
+  level:
+    root: INFO
+    com.hiscope: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+
+app:
+  bootstrap:
+    super-admin:
+      enabled: ${APP_BOOTSTRAP_SUPER_ADMIN_ENABLED:false}

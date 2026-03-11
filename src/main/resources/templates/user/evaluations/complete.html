@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>제출 완료</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="text-center py-5">
+    <i class="bi bi-check-circle-fill text-success display-1 mb-4 d-block"></i>
+    <h3 class="fw-bold mb-2">평가가 제출되었습니다</h3>
+    <p class="text-muted mb-1">
+        <strong th:text="${evaluatee.name}"></strong>님에 대한 평가를 성공적으로 제출했습니다.
+    </p>
+    <p class="text-muted mb-4">제출된 평가는 시스템에 안전하게 저장되었습니다.</p>
+    <div class="d-flex justify-content-center gap-3">
+        <a href="/user/evaluations" class="btn btn-primary">
+            <i class="bi bi-list-check me-1"></i>평가 목록으로
+        </a>
+        <a href="/user/dashboard" class="btn btn-outline-secondary">
+            <i class="bi bi-house me-1"></i>홈으로
+        </a>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

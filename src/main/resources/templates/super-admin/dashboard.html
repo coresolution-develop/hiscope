@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>슈퍼관리자 대시보드</title></head>
+<body>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-speedometer2 me-2 text-primary"></i>슈퍼관리자 대시보드</h4>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <div class="display-4 text-primary fw-bold" th:text="${organizations.size()}">0</div>
+            <div class="text-muted small mt-1">전체 기관 수</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <div class="display-4 text-success fw-bold"
+                 th:text="${activeCount}">0</div>
+            <div class="text-muted small mt-1">활성 기관</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <div class="display-4 text-secondary fw-bold"
+                 th:text="${inactiveCount}">0</div>
+            <div class="text-muted small mt-1">비활성 기관</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-building me-2"></i>기관 목록</span>
+        <a href="/super-admin/organizations/new" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>기관 생성
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>기관명</th><th>코드</th><th>상태</th><th>생성일</th><th>관리</th></tr></thead>
+            <tbody>
+            <tr th:each="org : ${organizations}">
+                <td><a th:href="@{/super-admin/organizations/{id}(id=${org.id})}" th:text="${org.name}" class="text-decoration-none fw-semibold"></a></td>
+                <td><code th:text="${org.code}"></code></td>
+                <td>
+                    <span th:text="${org.status}"
+                          th:class="${org.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span>
+                </td>
+                <td th:text="${#temporals.format(org.createdAt, 'yyyy-MM-dd')}"></td>
+                <td><a th:href="@{/super-admin/organizations/{id}(id=${org.id})}" class="btn btn-outline-secondary btn-sm">관리</a></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(organizations)}">
+                <td colspan="5" class="text-center text-muted py-4">등록된 기관이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</body>
+</html>
