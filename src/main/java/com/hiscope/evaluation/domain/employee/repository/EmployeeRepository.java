@@ -28,6 +28,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
 
     boolean existsByDepartmentId(Long departmentId);
 
+    boolean existsByOrganizationIdAndDepartmentId(Long organizationId, Long departmentId);
+
     @Query("SELECT e FROM Employee e WHERE e.organizationId = :orgId AND e.departmentId = :deptId AND e.status = 'ACTIVE'")
     List<Employee> findActivByOrgAndDept(@Param("orgId") Long orgId, @Param("deptId") Long deptId);
 

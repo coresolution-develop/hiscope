@@ -29,6 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                         .employeeId(null)
                         .role(account.getRole())
                         .name(account.getName())
+                        .mustChangePassword(account.isMustChangePassword())
                         .build())
                 // 2) 없으면 직원 계정 조회
                 // findByLoginIdAndEmployeeActive: JOIN FETCH로 lazy loading 제거 +
@@ -42,6 +43,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                                 .employeeId(ua.getEmployee().getId())
                                 .role(ua.getRole())
                                 .name(ua.getEmployee().getName())
+                                .mustChangePassword(ua.isMustChangePassword())
                                 .build()))
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + loginId));
     }

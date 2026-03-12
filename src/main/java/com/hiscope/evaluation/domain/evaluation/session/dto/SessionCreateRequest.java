@@ -1,5 +1,6 @@
 package com.hiscope.evaluation.domain.evaluation.session.dto;
 
+import com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -30,6 +31,11 @@ public class SessionCreateRequest {
 
     @NotNull(message = "평가 템플릿은 필수입니다.")
     private Long templateId;
+
+    @NotNull(message = "관계 생성 방식은 필수입니다.")
+    private RelationshipGenerationMode relationshipGenerationMode = RelationshipGenerationMode.LEGACY;
+
+    private Long relationshipDefinitionSetId;
 
     private boolean allowResubmit = false;
 }

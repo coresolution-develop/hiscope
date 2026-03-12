@@ -3,6 +3,7 @@ package com.hiscope.evaluation.domain.evaluation.session.entity;
 import com.hiscope.evaluation.common.entity.BaseTimeEntity;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
+import com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -50,6 +51,14 @@ public class EvaluationSession extends BaseTimeEntity {
     @Column(name = "created_by")
     private Long createdBy;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "relationship_generation_mode", nullable = false, length = 20)
+    @Builder.Default
+    private RelationshipGenerationMode relationshipGenerationMode = RelationshipGenerationMode.LEGACY;
+
+    @Column(name = "relationship_definition_set_id")
+    private Long relationshipDefinitionSetId;
+
     public void start() {
         if (!"PENDING".equals(this.status)) {
             throw new BusinessException(ErrorCode.SESSION_STATUS_INVALID, "대기 상태에서만 시작 가능합니다.");
@@ -79,4 +88,16 @@ public class EvaluationSession extends BaseTimeEntity {
     public boolean isPending() { return "PENDING".equals(this.status); }
     public boolean isInProgress() { return "IN_PROGRESS".equals(this.status); }
     public boolean isClosed() { return "CLOSED".equals(this.status); }
+
+    public boolean isRuleBasedGeneration() {
+        return relationshipGenerationMode == RelationshipGenerationMode.RULE_BASED;
+    }
+
+    public void configureRelationshipDefinition(RelationshipGenerationMode mode, Long definitionSetId) {
+        if (!isPending()) {
+            throw new BusinessException(ErrorCode.SESSION_ALREADY_STARTED, "시작된 세션은 관계 생성 방식을 변경할 수 없습니다.");
+        }
+        this.relationshipGenerationMode = mode;
+        this.relationshipDefinitionSetId = definitionSetId;
+    }
 }

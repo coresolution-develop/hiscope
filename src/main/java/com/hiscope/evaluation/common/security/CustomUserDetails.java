@@ -10,7 +10,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class CustomUserDetails implements UserDetails {
 
     private final Long id;               // Account.id 또는 UserAccount.id
@@ -20,6 +20,7 @@ public class CustomUserDetails implements UserDetails {
     private final Long employeeId;       // null = 관리자 계정
     private final String role;           // ROLE_SUPER_ADMIN | ROLE_ORG_ADMIN | ROLE_USER
     private final String name;
+    private final boolean mustChangePassword;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

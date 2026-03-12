@@ -6,7 +6,8 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0 fw-bold"><i class="bi bi-diagram-3 me-2 text-primary"></i>부서 관리</h4>
     <div class="d-flex gap-2">
-        <form action="/admin/uploads/departments" method="post" enctype="multipart/form-data" class="d-flex gap-2">
+        <form th:action="@{/admin/uploads/departments}" method="post" enctype="multipart/form-data" class="d-flex gap-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" style="width:220px">
             <button type="submit" class="btn btn-outline-success btn-sm">
                 <i class="bi bi-upload me-1"></i>엑셀 업로드
@@ -84,7 +85,7 @@
                             th:attr="onclick=|openEditModal(${dept.id}, '${dept.name}', '${dept.code}', ${dept.parentId})|">수정</button>
                     <form th:action="@{/admin/departments/{id}/delete(id=${dept.id})}" method="post" class="d-inline">
                         <button type="submit" class="btn btn-outline-danger btn-sm"
-                                onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                                onclick="return confirm('부서를 비활성화하시겠습니까?')">비활성화</button>
                     </form>
                 </td>
             </tr>
@@ -149,6 +150,7 @@
         <div class="modal-content">
             <div class="modal-header"><h5 class="modal-title">부서 수정</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <form id="editDeptForm" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">부서명 *</label>

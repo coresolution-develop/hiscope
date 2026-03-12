@@ -3,6 +3,7 @@ package com.hiscope.evaluation.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindException;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.ModelAndView;
 
 @Slf4j
 @ControllerAdvice
@@ -100,11 +102,13 @@ public class GlobalExceptionHandler {
                     .requestId(requestId)
                     .build());
         }
-        model.addAttribute("errorCode", code);
-        model.addAttribute("errorMessage", message);
-        model.addAttribute("httpStatus", status);
-        model.addAttribute("requestId", requestId);
-        return "error/error";
+        ModelAndView modelAndView = new ModelAndView("error/error");
+        modelAndView.setStatus(HttpStatus.valueOf(status));
+        modelAndView.addObject("errorCode", code);
+        modelAndView.addObject("errorMessage", message);
+        modelAndView.addObject("httpStatus", status);
+        modelAndView.addObject("requestId", requestId);
+        return modelAndView;
     }
 
     private boolean expectsJson(HttpServletRequest req) {

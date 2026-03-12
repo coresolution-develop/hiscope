@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>관계 정의 설정</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-diagram-3 me-2 text-primary"></i>관계 정의 설정</h4>
+    <a class="btn btn-outline-secondary btn-sm" href="/admin/settings">운영 설정으로</a>
+</div>
+<div class="alert alert-info py-2">v1 지원 범위: EMPLOYEE / DEPARTMENT / JOB_TITLE / ATTRIBUTE, IN / NOT_IN</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">세트 등록</div>
+            <div class="card-body">
+                <form th:action="@{/admin/settings/relationships/sets}" method="post" th:object="${setRequest}">
+                    <div class="mb-2">
+                        <label class="form-label small">세트명</label>
+                        <input type="text" th:field="*{name}" class="form-control form-control-sm" placeholder="예: 병원 기본 세트">
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" th:field="*{active}" class="form-check-input" id="setActive">
+                        <label class="form-check-label" for="setActive">활성</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" th:field="*{defaultSet}" class="form-check-input" id="setDefault">
+                        <label class="form-check-label" for="setDefault">기본 세트로 지정</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">세트 생성</button>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header fw-semibold">세트 목록</div>
+            <div class="card-body border-bottom">
+                <form method="get" th:action="@{/admin/settings/relationships}" class="row g-1">
+                    <div class="col-7"><input type="text" name="setKeyword" class="form-control form-control-sm" th:value="${setKeyword}" placeholder="세트명 검색"></div>
+                    <div class="col-3">
+                        <select name="setActive" class="form-select form-select-sm">
+                            <option value="">전체</option>
+                            <option value="true" th:selected="${setActive == true}">활성</option>
+                            <option value="false" th:selected="${setActive == false}">비활성</option>
+                        </select>
+                    </div>
+                    <div class="col-2"><button class="btn btn-outline-primary btn-sm w-100" type="submit">적용</button></div>
+                </form>
+            </div>
+            <div class="list-group list-group-flush">
+                <a th:each="set : ${sets}"
+                   th:href="@{/admin/settings/relationships(setId=${set.id})}"
+                   class="list-group-item list-group-item-action"
+                   th:classappend="${selectedSetId == set.id} ? ' active'">
+                    <div class="fw-semibold" th:text="${set.name}"></div>
+                    <small th:text="|${set.isDefault ? '기본' : '일반'} / ${set.active ? '활성' : '비활성'}|"></small>
+                </a>
+                <div class="list-group-item text-muted" th:if="${#lists.isEmpty(sets)}">등록된 세트가 없습니다.</div>
+            </div>
+            <div class="card-footer d-flex justify-content-between small text-muted">
+                <span th:text="|총 ${setTotal}건|">총 0건</span>
+                <div class="d-flex gap-1">
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/relationships(setKeyword=${setKeyword},setActive=${setActive},setPage=${setPage - 1},size=${size})}"
+                       th:classappend="${setPage == 0} ? ' disabled'">이전</a>
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/relationships(setKeyword=${setKeyword},setActive=${setActive},setPage=${setPage + 1},size=${size})}"
+                       th:classappend="${(setPage + 1) * size >= setTotal} ? ' disabled'">다음</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8" th:if="${selectedSet != null}">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">선택 세트 수정</div>
+            <div class="card-body">
+                <form th:action="@{/admin/settings/relationships/sets/{setId}(setId=${selectedSet.id})}" method="post">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label small">세트명</label>
+                            <input type="text" name="name" class="form-control form-control-sm" th:value="${selectedSet.name}">
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="active" value="true" th:checked="${selectedSet.active}" id="editSetActive">
+                                <label class="form-check-label" for="editSetActive">활성</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100">수정</button>
+                        </div>
+                    </div>
+                </form>
+                <form th:action="@{/admin/settings/relationships/sets/{setId}/default(setId=${selectedSet.id})}" method="post" class="mt-2">
+                    <button type="submit" class="btn btn-outline-dark btn-sm">기본 세트 지정</button>
+                </form>
+                <form th:action="@{/admin/settings/relationships/sets/{setId}/clone(setId=${selectedSet.id})}" method="post" class="mt-2 row g-2">
+                    <div class="col-md-8">
+                        <input type="text" name="name" class="form-control form-control-sm" placeholder="복제 세트명">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100">세트 복제</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">룰 등록</div>
+            <div class="card-body">
+                <form th:action="@{/admin/settings/relationships/sets/{setId}/rules(setId=${selectedSet.id})}" method="post" th:object="${ruleRequest}">
+                    <div class="row g-2">
+                        <div class="col-md-4"><input type="text" th:field="*{ruleName}" class="form-control form-control-sm" placeholder="룰명"></div>
+                        <div class="col-md-3">
+                            <select th:field="*{relationType}" class="form-select form-select-sm">
+                                <option th:each="type : ${relationTypes}" th:value="${type}" th:text="${type}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-2"><input type="number" th:field="*{priority}" class="form-control form-control-sm" min="1"></div>
+                        <div class="col-md-1 d-flex align-items-center">
+                            <input type="checkbox" th:field="*{active}" class="form-check-input" checked>
+                        </div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-primary btn-sm w-100">생성</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">룰 목록</div>
+            <div class="card-body border-bottom">
+                <form method="get" th:action="@{/admin/settings/relationships}" class="row g-1">
+                    <input type="hidden" name="setId" th:value="${selectedSet.id}">
+                    <div class="col-7"><input type="text" name="ruleKeyword" class="form-control form-control-sm" th:value="${ruleKeyword}" placeholder="룰명 검색"></div>
+                    <div class="col-3">
+                        <select name="ruleActive" class="form-select form-select-sm">
+                            <option value="">전체</option>
+                            <option value="true" th:selected="${ruleActive == true}">활성</option>
+                            <option value="false" th:selected="${ruleActive == false}">비활성</option>
+                        </select>
+                    </div>
+                    <div class="col-2"><button class="btn btn-outline-primary btn-sm w-100" type="submit">적용</button></div>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>룰명</th><th>유형</th><th>우선순위</th><th>활성</th><th>관리</th></tr></thead>
+                    <tbody>
+                    <tr th:each="rule : ${rules}">
+                        <td colspan="5">
+                            <form th:action="@{/admin/settings/relationships/sets/{setId}/rules/{ruleId}(setId=${selectedSet.id},ruleId=${rule.id})}" method="post" class="row g-1 align-items-center">
+                                <div class="col-md-3">
+                                    <input type="text" name="ruleName" class="form-control form-control-sm" th:value="${rule.ruleName}">
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="relationType" class="form-select form-select-sm">
+                                        <option th:each="type : ${relationTypes}" th:value="${type}" th:text="${type}" th:selected="${type == rule.relationType}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" name="priority" class="form-control form-control-sm" min="1" th:value="${rule.priority}">
+                                </div>
+                                <div class="col-md-1 text-center">
+                                    <input class="form-check-input" type="checkbox" name="active" value="true" th:checked="${rule.active}">
+                                </div>
+                                <div class="col-md-4 d-flex gap-1">
+                                    <a th:href="@{/admin/settings/relationships(setId=${selectedSet.id},ruleId=${rule.id})}" class="btn btn-outline-secondary btn-sm">매처</a>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">수정</button>
+                                    <button type="submit"
+                                            th:formaction="@{/admin/settings/relationships/sets/{setId}/rules/{ruleId}/delete(setId=${selectedSet.id},ruleId=${rule.id})}"
+                                            class="btn btn-outline-danger btn-sm"
+                                            onclick="return confirm('룰과 하위 매처를 삭제하시겠습니까?')">삭제</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(rules)}"><td colspan="5" class="text-center text-muted">룰이 없습니다.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer d-flex justify-content-between small text-muted">
+                <span th:text="|총 ${ruleTotal ?: 0}건|">총 0건</span>
+                <div class="d-flex gap-1">
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/relationships(setId=${selectedSet.id},ruleKeyword=${ruleKeyword},ruleActive=${ruleActive},rulePage=${rulePage - 1},size=${size})}"
+                       th:classappend="${rulePage == null or rulePage == 0} ? ' disabled'">이전</a>
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/relationships(setId=${selectedSet.id},ruleKeyword=${ruleKeyword},ruleActive=${ruleActive},rulePage=${rulePage + 1},size=${size})}"
+                       th:classappend="${ruleTotal == null or (rulePage + 1) * size >= ruleTotal} ? ' disabled'">다음</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" th:if="${selectedRuleId != null}">
+            <div class="card-header fw-semibold">매처 관리</div>
+            <div class="card-body">
+                <form method="get" th:action="@{/admin/settings/relationships}" class="row g-1 mb-3">
+                    <input type="hidden" name="setId" th:value="${selectedSet.id}">
+                    <input type="hidden" name="ruleId" th:value="${selectedRuleId}">
+                    <div class="col-md-3">
+                        <select name="matcherSubjectType" class="form-select form-select-sm">
+                            <option value="">subject 전체</option>
+                            <option th:each="t : ${subjectTypes}" th:value="${t}" th:text="${t}" th:selected="${matcherSubjectType == t}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="matcherType" class="form-select form-select-sm">
+                            <option value="">matcher 전체</option>
+                            <option th:each="t : ${matcherTypes}" th:value="${t}" th:text="${t}" th:selected="${matcherType == t}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="matcherOperator" class="form-select form-select-sm">
+                            <option value="">operator 전체</option>
+                            <option th:each="t : ${operators}" th:value="${t}" th:text="${t}" th:selected="${matcherOperator == t}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-outline-primary btn-sm w-100">필터 적용</button></div>
+                </form>
+                <form th:action="@{/admin/settings/relationships/sets/{setId}/rules/{ruleId}/matchers(setId=${selectedSet.id},ruleId=${selectedRuleId})}" method="post" th:object="${matcherRequest}" class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <select th:field="*{subjectType}" class="form-select form-select-sm">
+                            <option th:each="t : ${subjectTypes}" th:value="${t}" th:text="${t}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select th:field="*{matcherType}" class="form-select form-select-sm">
+                            <option th:each="t : ${matcherTypes}" th:value="${t}" th:text="${t}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select th:field="*{operator}" class="form-select form-select-sm">
+                            <option th:each="t : ${operators}" th:value="${t}" th:text="${t}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><input type="text" th:field="*{valueText}" class="form-control form-control-sm" placeholder="예: 1,2 또는 ICU"></div>
+                    <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm w-100">+ </button></div>
+                </form>
+
+                <table class="table table-sm mb-0" th:if="${matchers != null}">
+                    <thead><tr><th>subject</th><th>matcher</th><th>operator</th><th>value</th><th>관리</th></tr></thead>
+                    <tbody>
+                    <tr th:each="m : ${matchers}">
+                        <td colspan="5">
+                            <form th:action="@{/admin/settings/relationships/sets/{setId}/rules/{ruleId}/matchers/{matcherId}(setId=${selectedSet.id},ruleId=${selectedRuleId},matcherId=${m.id})}" method="post" class="row g-1">
+                                <div class="col-md-2">
+                                    <select name="subjectType" class="form-select form-select-sm">
+                                        <option th:each="t : ${subjectTypes}" th:value="${t}" th:text="${t}" th:selected="${t == m.subjectType}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="matcherType" class="form-select form-select-sm">
+                                        <option th:each="t : ${matcherTypes}" th:value="${t}" th:text="${t}" th:selected="${t == m.matcherType}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="operator" class="form-select form-select-sm">
+                                        <option th:each="t : ${operators}" th:value="${t}" th:text="${t}" th:selected="${t == m.operator}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" name="valueText" class="form-control form-control-sm" th:value="${m.valueText}">
+                                </div>
+                                <div class="col-md-2 d-flex gap-1">
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">수정</button>
+                                    <button type="submit"
+                                            th:formaction="@{/admin/settings/relationships/sets/{setId}/rules/{ruleId}/matchers/{matcherId}/delete(setId=${selectedSet.id},ruleId=${selectedRuleId},matcherId=${m.id})}"
+                                            class="btn btn-outline-danger btn-sm">삭제</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(matchers)}"><td colspan="5" class="text-center text-muted">매처가 없습니다.</td></tr>
+                    </tbody>
+                </table>
+                <div class="d-flex justify-content-between small text-muted mt-2">
+                    <span th:text="|총 ${matcherTotal ?: 0}건|">총 0건</span>
+                    <div class="d-flex gap-1">
+                        <a class="btn btn-outline-secondary btn-sm"
+                           th:href="@{/admin/settings/relationships(setId=${selectedSet.id},ruleId=${selectedRuleId},matcherSubjectType=${matcherSubjectType},matcherType=${matcherType},matcherOperator=${matcherOperator},matcherPage=${matcherPage - 1},size=${size})}"
+                           th:classappend="${matcherPage == null or matcherPage == 0} ? ' disabled'">이전</a>
+                        <a class="btn btn-outline-secondary btn-sm"
+                           th:href="@{/admin/settings/relationships(setId=${selectedSet.id},ruleId=${selectedRuleId},matcherSubjectType=${matcherSubjectType},matcherType=${matcherType},matcherOperator=${matcherOperator},matcherPage=${matcherPage + 1},size=${size})}"
+                           th:classappend="${matcherTotal == null or (matcherPage + 1) * size >= matcherTotal} ? ' disabled'">다음</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

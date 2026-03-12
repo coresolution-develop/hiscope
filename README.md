@@ -41,6 +41,8 @@ Spring Boot + Thymeleaf + PostgreSQL + Flyway 기반으로 동작합니다.
 
 ### DB 준비
 - 기본값은 내장 H2 DB라서 별도 DB 없이 바로 실행 가능
+- 로컬 기본 H2 파일 경로는 `./data/h2db/hiscope_local` (재시작/빌드 후에도 유지)
+- `./gradlew clean`으로도 삭제되지 않으며, 로컬 데이터를 초기화하려면 `./data/h2db`를 직접 삭제
 - PostgreSQL을 쓰려면 `application-local.yml` 또는 환경변수(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DRIVER_CLASS_NAME`)로 설정
 
 ### 실행
@@ -117,3 +119,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 - [V1_A_SCOPE_STATUS.md](docs/V1_A_SCOPE_STATUS.md)
 - [V1_B_ENHANCEMENTS_STATUS.md](docs/V1_B_ENHANCEMENTS_STATUS.md)
 - [DEFAULT_SORT_FILTER_POLICY.md](docs/DEFAULT_SORT_FILTER_POLICY.md)
+- [rule_based_go_live_checklist.md](docs/operations/rule_based_go_live_checklist.md)
+- [employee_upload_template_guide.md](docs/operations/employee_upload_template_guide.md)
+- [uat_rehearsal_final_pack.md](docs/operations/uat_rehearsal_final_pack.md)

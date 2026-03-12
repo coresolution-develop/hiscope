@@ -6,7 +6,8 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0 fw-bold"><i class="bi bi-people me-2 text-primary"></i>직원 관리</h4>
     <div class="d-flex gap-2">
-        <form action="/admin/uploads/employees" method="post" enctype="multipart/form-data" class="d-flex gap-2">
+        <form th:action="@{/admin/uploads/employees}" method="post" enctype="multipart/form-data" class="d-flex gap-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" style="width:220px">
             <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-upload me-1"></i>엑셀 업로드</button>
         </form>
@@ -15,6 +16,12 @@
             <i class="bi bi-person-plus me-1"></i>직원 추가
         </button>
     </div>
+</div>
+<div class="alert alert-light border py-2 small">
+    직원 엑셀 업로드 시 기본 컬럼 뒤에 병원형 속성 컬럼을 추가할 수 있습니다.
+    예: 경혁팀, 경혁팀장, 부서장, 1인부서, 의료리더, 기관장, 소속장, 평가제외 또는 `attr:attribute_key`.
+    경혁팀/경혁팀장/부서장은 서로 독립 속성이며 자동 추론되지 않습니다.
+    boolean 속성은 `Y/N`, `true/false`, `1/0` 형식만 허용됩니다.
 </div>
 
 <div class="card">

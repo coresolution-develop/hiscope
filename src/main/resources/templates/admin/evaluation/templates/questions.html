@@ -20,6 +20,7 @@
                 <div class="d-flex gap-2">
                     <form th:action="@{/admin/evaluation/templates/{id}/questions/upload(id=${template.id})}"
                           method="post" enctype="multipart/form-data" class="d-flex gap-1">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                         <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" style="width:180px">
                         <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-upload"></i></button>
                     </form>
@@ -38,7 +39,7 @@
                             <span th:text="${q.questionType == 'SCALE'} ? '척도' : '서술'"
                                   th:class="${q.questionType == 'SCALE'} ? 'badge bg-primary' : 'badge bg-info text-dark'"></span>
                         </td>
-                        <td th:text="${q.maxScore != null} ? ${q.maxScore} + '점' : '-'" class="small"></td>
+                        <td th:text="${q.maxScore != null ? q.maxScore + '점' : '-'}" class="small"></td>
                         <td>
                             <form th:action="@{/admin/evaluation/templates/{tid}/questions/{qid}/delete(tid=${template.id},qid=${q.id})}" method="post" class="d-inline">
                                 <button type="submit" class="btn btn-outline-danger btn-sm"
@@ -66,7 +67,10 @@
                         <label class="form-label fw-semibold small">카테고리 *</label>
                         <select th:field="*{category}" class="form-select form-select-sm">
                             <option value="">선택</option>
-                            <option>공통역량</option><option>협업</option><option>리더십</option><option>정성평가</option>
+                            <option value="공통역량">공통역량</option>
+                            <option value="협업">협업</option>
+                            <option value="리더십">리더십</option>
+                            <option value="정성평가">정성평가</option>
                         </select>
                     </div>
                     <div class="mb-3">

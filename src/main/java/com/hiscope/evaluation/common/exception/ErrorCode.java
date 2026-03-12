@@ -25,6 +25,7 @@ public enum ErrorCode {
     // 부서
     DEPARTMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "부서를 찾을 수 없습니다."),
     DEPARTMENT_CODE_DUPLICATE(HttpStatus.CONFLICT, "같은 기관 내에 이미 사용 중인 부서 코드입니다."),
+    DEPARTMENT_HAS_CHILDREN(HttpStatus.CONFLICT, "하위 부서가 존재하여 삭제할 수 없습니다."),
     DEPARTMENT_HAS_EMPLOYEES(HttpStatus.CONFLICT, "직원이 배정된 부서는 삭제할 수 없습니다."),
 
     // 직원
@@ -54,7 +55,8 @@ public enum ErrorCode {
 
     // 엑셀
     EXCEL_PARSE_ERROR(HttpStatus.BAD_REQUEST, "엑셀 파일 파싱 중 오류가 발생했습니다."),
-    EXCEL_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다. .xlsx 파일만 업로드 가능합니다.");
+    EXCEL_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다. .xlsx 파일만 업로드 가능합니다."),
+    EXCEL_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "다운로드 템플릿 파일을 찾을 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

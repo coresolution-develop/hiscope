@@ -99,7 +99,7 @@
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>세션명</th><th>기간</th><th>상태</th><th>재제출</th><th>생성일</th><th width="300">관리</th></tr></thead>
+            <thead><tr><th>세션명</th><th>기간</th><th>상태</th><th>관계 생성</th><th>재제출</th><th>생성일</th><th width="300">관리</th></tr></thead>
             <tbody id="sessionTableBody">
             <tr th:each="s : ${sessions}">
                 <td>
@@ -113,6 +113,12 @@
                 <td>
                     <span th:text="${s.status == 'PENDING'} ? '대기' : (${s.status == 'IN_PROGRESS'} ? '진행 중' : '종료')"
                           th:class="${s.status == 'PENDING'} ? 'badge bg-secondary' : (${s.status == 'IN_PROGRESS'} ? 'badge bg-primary' : 'badge bg-success')"></span>
+                </td>
+                <td>
+                    <span th:if="${s.relationshipGenerationMode == T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}"
+                          class="badge bg-dark">RULE_BASED</span>
+                    <span th:if="${s.relationshipGenerationMode != T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}"
+                          class="badge bg-light text-dark border">LEGACY</span>
                 </td>
                 <td><span th:text="${s.allowResubmit} ? '허용' : '불가'"
                           th:class="${s.allowResubmit} ? 'badge bg-info text-dark' : 'badge bg-light text-dark border'"></span></td>
@@ -130,7 +136,7 @@
                 </td>
             </tr>
             <tr th:if="${#lists.isEmpty(sessions)}" id="emptySessionRow">
-                <td colspan="6" class="text-center text-muted py-4">등록된 평가 세션이 없습니다.</td>
+                <td colspan="7" class="text-center text-muted py-4">등록된 평가 세션이 없습니다.</td>
             </tr>
             </tbody>
         </table>
@@ -210,6 +216,29 @@
                                 <option th:each="t : ${templates}" th:value="${t.id}" th:text="${t.name}"></option>
                             </select>
                             <div class="invalid-feedback" th:if="${#fields.hasErrors('templateId')}" th:errors="*{templateId}"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">관계 생성 방식 *</label>
+                            <select th:field="*{relationshipGenerationMode}"
+                                    th:classappend="${#fields.hasErrors('relationshipGenerationMode')} ? ' is-invalid' : ''"
+                                    class="form-select" id="relationshipGenerationMode">
+                                <option th:value="${T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).LEGACY}">LEGACY</option>
+                                <option th:value="${T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">RULE_BASED</option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('relationshipGenerationMode')}" th:errors="*{relationshipGenerationMode}"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">관계 정의 세트 (RULE_BASED 필수)</label>
+                            <select th:field="*{relationshipDefinitionSetId}"
+                                    th:classappend="${#fields.hasErrors('relationshipDefinitionSetId')} ? ' is-invalid' : ''"
+                                    class="form-select" id="relationshipDefinitionSetId">
+                                <option value="">세트 선택</option>
+                                <option th:each="set : ${relationshipDefinitionSets}"
+                                        th:value="${set.id}"
+                                        th:text="${set.name + (set.isDefault ? ' (기본)' : '') + (set.active ? '' : ' [비활성]')}"></option>
+                            </select>
+                            <div class="form-text">RULE_BASED 선택 시 활성 세트를 지정해야 합니다.</div>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('relationshipDefinitionSetId')}" th:errors="*{relationshipDefinitionSetId}"></div>
                         </div>
                         <div class="col-md-4 d-flex align-items-end">
                             <div class="form-check mb-2">

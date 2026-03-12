@@ -2,6 +2,7 @@ package com.hiscope.evaluation.domain.department.controller;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
 import com.hiscope.evaluation.common.audit.AuditDetail;
+import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.department.dto.DepartmentRequest;
 import com.hiscope.evaluation.domain.department.service.DepartmentService;
@@ -80,11 +81,16 @@ public class DepartmentController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         Long orgId = SecurityUtils.getCurrentOrgId();
-        var existing = departmentService.findById(orgId, id);
-        departmentService.delete(orgId, id);
-        auditLogger.success("DEPT_DELETE", "DEPARTMENT", String.valueOf(id),
-                AuditDetail.of("name", existing.getName(), "code", existing.getCode(), "deleted", true));
-        ra.addFlashAttribute("successMessage", "부서가 삭제되었습니다.");
+        try {
+            var existing = departmentService.findById(orgId, id);
+            departmentService.delete(orgId, id);
+            auditLogger.success("DEPT_DELETE", "DEPARTMENT", String.valueOf(id),
+                    AuditDetail.of("name", existing.getName(), "code", existing.getCode(), "active", false));
+            ra.addFlashAttribute("successMessage", "부서가 비활성화되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("DEPT_DELETE", "DEPARTMENT", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/admin/departments";
     }
 

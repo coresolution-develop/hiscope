@@ -97,7 +97,7 @@ public class DepartmentService {
         }
         Department dept = Department.builder()
                 .organizationId(orgId)
-                .parentId(request.getParentId())
+                .parentId(resolveParentId(orgId, request.getParentId(), null))
                 .name(request.getName())
                 .code(request.getCode())
                 .active(true)
@@ -112,7 +112,7 @@ public class DepartmentService {
         if (departmentRepository.existsByOrganizationIdAndCodeAndIdNot(orgId, request.getCode(), id)) {
             throw new BusinessException(ErrorCode.DEPARTMENT_CODE_DUPLICATE);
         }
-        dept.update(request.getName(), request.getParentId(), request.isActive());
+        dept.update(request.getName(), resolveParentId(orgId, request.getParentId(), id), request.isActive());
         return DepartmentResponse.from(dept);
     }
 
@@ -120,10 +120,14 @@ public class DepartmentService {
     public void delete(Long orgId, Long id) {
         SecurityUtils.checkOrgAccess(orgId);
         Department dept = getByOrgAndId(orgId, id);
-        if (employeeRepository.existsByDepartmentId(id)) {
+        if (departmentRepository.existsByOrganizationIdAndParentId(orgId, id)) {
+            throw new BusinessException(ErrorCode.DEPARTMENT_HAS_CHILDREN,
+                    "하위 부서가 존재합니다. 하위 부서를 먼저 정리한 후 비활성화해주세요.");
+        }
+        if (employeeRepository.existsByOrganizationIdAndDepartmentId(orgId, id)) {
             throw new BusinessException(ErrorCode.DEPARTMENT_HAS_EMPLOYEES);
         }
-        departmentRepository.delete(dept);
+        dept.deactivate();
     }
 
     public Department getByOrgAndId(Long orgId, Long id) {
@@ -143,5 +147,19 @@ public class DepartmentService {
             return null;
         }
         return keyword.trim();
+    }
+
+    private Long resolveParentId(Long orgId, Long parentId, Long selfId) {
+        if (parentId == null) {
+            return null;
+        }
+        if (selfId != null && selfId.equals(parentId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "자기 자신을 상위 부서로 지정할 수 없습니다.");
+        }
+        Department parent = getByOrgAndId(orgId, parentId);
+        if (!parent.isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비활성 부서는 상위 부서로 지정할 수 없습니다.");
+        }
+        return parent.getId();
     }
 }

@@ -322,4 +322,54 @@ public class EvaluationRelationshipService {
             Boolean active
     ) {
     }
+
+    public List<LegacyPreviewRelationship> previewLegacyRelationships(Long orgId) {
+        SecurityUtils.checkOrgAccess(orgId);
+        List<Employee> employees = employeeRepository.findByOrganizationIdAndStatusOrderByNameAsc(orgId, "ACTIVE");
+        Map<Long, List<Employee>> byDept = employees.stream()
+                .filter(e -> e.getDepartmentId() != null)
+                .collect(Collectors.groupingBy(Employee::getDepartmentId));
+        List<LegacyPreviewRelationship> preview = new ArrayList<>();
+        Set<String> dedup = new HashSet<>();
+        for (Map.Entry<Long, List<Employee>> entry : byDept.entrySet()) {
+            List<Employee> deptEmployees = entry.getValue();
+            List<Employee> leaders = deptEmployees.stream().filter(Employee::isTeamLeader).toList();
+            List<Employee> members = deptEmployees.stream().filter(e -> !e.isTeamLeader()).toList();
+            for (Employee member : members) {
+                for (Employee leader : leaders) {
+                    addPreview(preview, dedup, member.getId(), leader.getId(), "UPWARD");
+                }
+            }
+            for (Employee leader : leaders) {
+                for (Employee member : members) {
+                    addPreview(preview, dedup, leader.getId(), member.getId(), "DOWNWARD");
+                }
+            }
+            for (int i = 0; i < members.size(); i++) {
+                for (int j = i + 1; j < members.size(); j++) {
+                    addPreview(preview, dedup, members.get(i).getId(), members.get(j).getId(), "PEER");
+                    addPreview(preview, dedup, members.get(j).getId(), members.get(i).getId(), "PEER");
+                }
+            }
+        }
+        return preview;
+    }
+
+    private void addPreview(List<LegacyPreviewRelationship> preview,
+                            Set<String> dedup,
+                            Long evaluatorId,
+                            Long evaluateeId,
+                            String relationType) {
+        if (evaluatorId.equals(evaluateeId)) {
+            return;
+        }
+        String key = evaluatorId + "_" + evaluateeId;
+        if (!dedup.add(key)) {
+            return;
+        }
+        preview.add(new LegacyPreviewRelationship(evaluatorId, evaluateeId, relationType));
+    }
+
+    public record LegacyPreviewRelationship(Long evaluatorId, Long evaluateeId, String relationType) {
+    }
 }

@@ -26,6 +26,9 @@
                     <div th:if="${param.logout}" class="alert alert-info py-2 small">
                         로그아웃되었습니다.
                     </div>
+                    <div th:if="${param.expired}" class="alert alert-warning py-2 small">
+                        세션이 만료되었습니다. 다시 로그인해주세요.
+                    </div>
                     <form method="post" action="/login">
                         <input th:name="${_csrf.parameterName}" th:value="${_csrf.token}" type="hidden"/>
                         <div class="mb-3">

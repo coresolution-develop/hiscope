@@ -38,11 +38,23 @@ public class UserAccount extends BaseTimeEntity {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     public void updateLastLogin() {
         this.lastLoginAt = LocalDateTime.now();
     }
 
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public void markPasswordChangeRequired() {
+        this.mustChangePassword = true;
+    }
+
+    public void clearPasswordChangeRequired() {
+        this.mustChangePassword = false;
     }
 }

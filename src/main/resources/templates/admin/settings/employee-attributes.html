@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>직원 속성 관리</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-tags me-2 text-primary"></i>직원 속성 관리</h4>
+    <a class="btn btn-outline-secondary btn-sm" href="/admin/settings">운영 설정으로</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">속성 사전 등록</div>
+            <div class="card-body">
+                <form th:action="@{/admin/settings/employee-attributes}" method="post" th:object="${attributeRequest}" class="row g-2">
+                    <div class="col-md-4"><input type="text" th:field="*{attributeKey}" class="form-control form-control-sm" placeholder="attribute_key"></div>
+                    <div class="col-md-4"><input type="text" th:field="*{attributeName}" class="form-control form-control-sm" placeholder="속성명"></div>
+                    <div class="col-md-2 d-flex align-items-center"><input type="checkbox" th:field="*{active}" class="form-check-input" checked></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary btn-sm w-100">등록</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-semibold">속성 목록</div>
+            <div class="card-body border-bottom">
+                <form method="get" th:action="@{/admin/settings/employee-attributes}" class="row g-2">
+                    <div class="col-md-6">
+                        <input type="text" name="attributeKeyword" class="form-control form-control-sm" th:value="${attributeKeyword}" placeholder="속성 키/이름 검색">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="attributeActive" class="form-select form-select-sm">
+                            <option value="">전체</option>
+                            <option value="true" th:selected="${attributeActive == true}">활성</option>
+                            <option value="false" th:selected="${attributeActive == false}">비활성</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><button class="btn btn-outline-primary btn-sm w-100" type="submit">적용</button></div>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>키</th><th>이름</th><th>활성</th><th>관리</th></tr></thead>
+                    <tbody>
+                    <tr th:each="attr : ${attributes}">
+                        <td th:text="${attr.attributeKey}"></td>
+                        <td>
+                            <form th:action="@{/admin/settings/employee-attributes/{id}(id=${attr.id})}" method="post" class="d-flex gap-1">
+                                <input type="hidden" name="attributeKey" th:value="${attr.attributeKey}">
+                                <input type="text" name="attributeName" class="form-control form-control-sm" th:value="${attr.attributeName}">
+                                <input type="checkbox" name="active" value="true" class="form-check-input mt-2" th:checked="${attr.active}">
+                                <button type="submit" class="btn btn-outline-primary btn-sm">수정</button>
+                            </form>
+                        </td>
+                        <td th:text="${attr.active ? 'Y' : 'N'}"></td>
+                        <td></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(attributes)}"><td colspan="4" class="text-center text-muted">등록된 속성이 없습니다.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer d-flex justify-content-between small text-muted">
+                <span th:text="|총 ${attributeTotal}건|">총 0건</span>
+                <div class="d-flex gap-1">
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/employee-attributes(attributeKeyword=${attributeKeyword},attributeActive=${attributeActive},attributePage=${attributePage - 1},size=${size})}"
+                       th:classappend="${attributePage == 0} ? ' disabled'">이전</a>
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/employee-attributes(attributeKeyword=${attributeKeyword},attributeActive=${attributeActive},attributePage=${attributePage + 1},size=${size})}"
+                       th:classappend="${(attributePage + 1) * size >= attributeTotal} ? ' disabled'">다음</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">직원별 속성 값 등록</div>
+            <div class="card-body">
+                <form th:action="@{/admin/settings/employee-attributes/values}" method="post" th:object="${valueRequest}" class="row g-2">
+                    <div class="col-md-4">
+                        <select th:field="*{employeeId}" class="form-select form-select-sm">
+                            <option value="">직원 선택</option>
+                            <option th:each="emp : ${employees}" th:value="${emp.id}" th:text="${emp.name + ' (' + (emp.departmentName != null ? emp.departmentName : '-') + ')'}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select th:field="*{attributeId}" class="form-select form-select-sm">
+                            <option value="">속성 선택</option>
+                            <option th:each="attr : ${attributes}" th:value="${attr.id}" th:text="${attr.attributeName + ' [' + attr.attributeKey + ']'}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><input type="text" th:field="*{valueText}" class="form-control form-control-sm" placeholder="값"></div>
+                    <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm w-100">저장</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-semibold">직원 속성 값 목록</div>
+            <div class="card-body border-bottom">
+                <form method="get" th:action="@{/admin/settings/employee-attributes}" class="row g-2 align-items-end">
+                    <div class="col-md-8">
+                        <label class="form-label small">직원 선택</label>
+                        <select name="employeeId" class="form-select form-select-sm">
+                            <option value="">직원을 선택하면 속성 값이 표시됩니다</option>
+                            <option th:each="emp : ${employees}" th:value="${emp.id}" th:selected="${selectedEmployeeId == emp.id}" th:text="${emp.name + ' (' + (emp.departmentName != null ? emp.departmentName : '-') + ')'}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-4"><button type="submit" class="btn btn-outline-primary btn-sm w-100">조회</button></div>
+                    <div class="col-md-12">
+                        <input type="text" class="form-control form-control-sm" name="valueKeyword" th:value="${valueKeyword}" placeholder="값 검색 (선택)">
+                    </div>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0" th:if="${employeeValues != null}">
+                    <thead><tr><th>속성</th><th>value</th><th>관리</th></tr></thead>
+                    <tbody>
+                    <tr th:each="v : ${employeeValues}">
+                        <td th:text="${attributeNameMap[v.attributeId] ?: ('#' + v.attributeId)}"></td>
+                        <td th:text="${v.valueText}"></td>
+                        <td>
+                            <form th:action="@{/admin/settings/employee-attributes/values/{id}/delete(id=${v.id})}" method="post" class="d-inline">
+                                <input type="hidden" name="employeeId" th:value="${selectedEmployeeId}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">삭제</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(employeeValues)}"><td colspan="3" class="text-center text-muted">등록된 값이 없습니다.</td></tr>
+                    </tbody>
+                </table>
+                <div class="p-3 text-muted" th:if="${employeeValues == null}">직원을 선택해 속성 값을 확인하세요.</div>
+            </div>
+            <div class="card-footer d-flex justify-content-between small text-muted" th:if="${employeeValues != null}">
+                <span th:text="|총 ${valueTotal ?: 0}건|">총 0건</span>
+                <div class="d-flex gap-1">
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/employee-attributes(employeeId=${selectedEmployeeId},valueKeyword=${valueKeyword},valuePage=${valuePage - 1},size=${size})}"
+                       th:classappend="${valuePage == null or valuePage == 0} ? ' disabled'">이전</a>
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/settings/employee-attributes(employeeId=${selectedEmployeeId},valueKeyword=${valueKeyword},valuePage=${valuePage + 1},size=${size})}"
+                       th:classappend="${valueTotal == null or (valuePage + 1) * size >= valueTotal} ? ' disabled'">다음</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

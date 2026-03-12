@@ -71,6 +71,14 @@
                         <dd class="col-7">
                             <span th:text="${evalSession.allowResubmit == true ? '허용' : '불가'}">불가</span>
                         </dd>
+                        <dt class="col-5 small text-muted">관계 생성</dt>
+                        <dd class="col-7">
+                            <span th:text="${evalSession.relationshipGenerationMode}">LEGACY</span>
+                        </dd>
+                        <dt class="col-5 small text-muted" th:if="${evalSession.relationshipGenerationMode == T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">정의 세트</dt>
+                        <dd class="col-7" th:if="${evalSession.relationshipGenerationMode == T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">
+                            <span th:text="${evalSession.relationshipDefinitionSetId != null ? ('#' + evalSession.relationshipDefinitionSetId) : '-'}">-</span>
+                        </dd>
                     </dl>
                 </div>
                 <div class="card-footer bg-transparent">
@@ -205,6 +213,29 @@
                                     <option th:each="t : ${templates}" th:value="${t.id}" th:text="${t.name}"></option>
                                 </select>
                                 <div class="invalid-feedback" th:if="${#fields.hasErrors('templateId')}" th:errors="*{templateId}"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">관계 생성 방식 *</label>
+                                <select th:field="*{relationshipGenerationMode}"
+                                        th:classappend="${#fields.hasErrors('relationshipGenerationMode')} ? ' is-invalid' : ''"
+                                        class="form-select">
+                                    <option th:value="${T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).LEGACY}">LEGACY</option>
+                                    <option th:value="${T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">RULE_BASED</option>
+                                </select>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('relationshipGenerationMode')}" th:errors="*{relationshipGenerationMode}"></div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">관계 정의 세트 (RULE_BASED 필수)</label>
+                                <select th:field="*{relationshipDefinitionSetId}"
+                                        th:classappend="${#fields.hasErrors('relationshipDefinitionSetId')} ? ' is-invalid' : ''"
+                                        class="form-select">
+                                    <option value="">세트 선택</option>
+                                    <option th:each="set : ${relationshipDefinitionSets}"
+                                            th:value="${set.id}"
+                                            th:text="${set.name + (set.isDefault ? ' (기본)' : '') + (set.active ? '' : ' [비활성]')}"></option>
+                                </select>
+                                <div class="form-text">RULE_BASED 선택 시 활성 세트를 지정하세요.</div>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('relationshipDefinitionSetId')}" th:errors="*{relationshipDefinitionSetId}"></div>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <div class="form-check mb-2">

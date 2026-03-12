@@ -24,10 +24,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Row;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -36,7 +43,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
@@ -277,6 +286,249 @@ class SecurityAndAdminScenarioIntegrationTest {
 
         Account resetAccount = accountRepository.findById(created.getId()).orElseThrow();
         assertThat(resetAccount.getPasswordHash()).isNotEqualTo(previousPasswordHash);
+        assertThat(resetAccount.isMustChangePassword()).isTrue();
+    }
+
+    @Test
+    void 임시비밀번호_로그인시_비밀번호변경_화면으로_강제이동_테스트() throws Exception {
+        MockHttpSession superSession = loginAs("super", "password123");
+        String suffix = uniqueSuffix();
+
+        Organization org = organizationRepository.save(Organization.builder()
+                .name("임시비번기관-" + suffix)
+                .code("TMP" + suffix.toUpperCase())
+                .status("ACTIVE")
+                .build());
+
+        String loginId = "tmpadm_" + suffix;
+        mockMvc.perform(post("/super-admin/organizations/{id}/admins", org.getId())
+                        .session(superSession)
+                        .with(csrf())
+                        .param("name", "임시관리자-" + suffix)
+                        .param("loginId", loginId)
+                        .param("password", "password123")
+                        .param("email", loginId + "@test.local"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/super-admin/organizations/" + org.getId()));
+
+        Account created = accountRepository.findByLoginId(loginId).orElseThrow();
+        String temporaryPassword = resetPasswordAndExtractTemporaryPassword(superSession, org.getId(), created.getId());
+
+        MvcResult loginResult = mockMvc.perform(formLogin("/login")
+                        .user("loginId", loginId)
+                        .password("password", temporaryPassword))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/auth/change-password"))
+                .andReturn();
+
+        MockHttpSession tempSession = (MockHttpSession) loginResult.getRequest().getSession(false);
+        mockMvc.perform(get("/admin/dashboard").session(tempSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/auth/change-password"));
+    }
+
+    @Test
+    void 비밀번호변경_완료후_일반접근_허용_테스트() throws Exception {
+        MockHttpSession superSession = loginAs("super", "password123");
+        String suffix = uniqueSuffix();
+
+        Organization org = organizationRepository.save(Organization.builder()
+                .name("변경완료기관-" + suffix)
+                .code("PWD" + suffix.toUpperCase())
+                .status("ACTIVE")
+                .build());
+
+        String loginId = "pwdadm_" + suffix;
+        mockMvc.perform(post("/super-admin/organizations/{id}/admins", org.getId())
+                        .session(superSession)
+                        .with(csrf())
+                        .param("name", "변경관리자-" + suffix)
+                        .param("loginId", loginId)
+                        .param("password", "password123")
+                        .param("email", loginId + "@test.local"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/super-admin/organizations/" + org.getId()));
+
+        Account created = accountRepository.findByLoginId(loginId).orElseThrow();
+        String temporaryPassword = resetPasswordAndExtractTemporaryPassword(superSession, org.getId(), created.getId());
+
+        MvcResult loginResult = mockMvc.perform(formLogin("/login")
+                        .user("loginId", loginId)
+                        .password("password", temporaryPassword))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/auth/change-password"))
+                .andReturn();
+        MockHttpSession tempSession = (MockHttpSession) loginResult.getRequest().getSession(false);
+
+        mockMvc.perform(post("/auth/change-password")
+                        .session(tempSession)
+                        .with(csrf())
+                        .param("newPassword", "newPassword123!")
+                        .param("confirmPassword", "newPassword123!"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/dashboard"));
+
+        Account changed = accountRepository.findById(created.getId()).orElseThrow();
+        assertThat(changed.isMustChangePassword()).isFalse();
+
+        mockMvc.perform(get("/admin/dashboard").session(tempSession))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 부서_템플릿_다운로드_성공_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+
+        mockMvc.perform(get("/admin/uploads/template/departments").session(adminSession))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString("attachment")));
+    }
+
+    @Test
+    void 하위부서가_있으면_삭제_불가_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+
+        Department parent = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("상위부서-" + suffix)
+                .code("P" + suffix.toUpperCase())
+                .active(true)
+                .build());
+        departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .parentId(parent.getId())
+                .name("하위부서-" + suffix)
+                .code("C" + suffix.toUpperCase())
+                .active(true)
+                .build());
+
+        mockMvc.perform(post("/admin/departments/{id}/delete", parent.getId())
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/departments"))
+                .andExpect(flash().attribute("errorMessage",
+                        "하위 부서가 존재합니다. 하위 부서를 먼저 정리한 후 비활성화해주세요."));
+
+        Department stillActive = departmentRepository.findById(parent.getId()).orElseThrow();
+        assertThat(stillActive.isActive()).isTrue();
+    }
+
+    @Test
+    void 직원이_있으면_삭제_불가_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+
+        Department dept = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("직원존재부서-" + suffix)
+                .code("E" + suffix.toUpperCase())
+                .active(true)
+                .build());
+        employeeRepository.save(Employee.builder()
+                .organizationId(1L)
+                .departmentId(dept.getId())
+                .name("소속직원-" + suffix)
+                .employeeNumber("EMP-DEL-" + suffix)
+                .position("대리")
+                .jobTitle("팀원")
+                .email("emp-del-" + suffix + "@test.local")
+                .status("ACTIVE")
+                .build());
+
+        mockMvc.perform(post("/admin/departments/{id}/delete", dept.getId())
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/departments"))
+                .andExpect(flash().attribute("errorMessage", "직원이 배정된 부서는 삭제할 수 없습니다."));
+
+        Department stillActive = departmentRepository.findById(dept.getId()).orElseThrow();
+        assertThat(stillActive.isActive()).isTrue();
+    }
+
+    @Test
+    void 삭제가능_조건이면_부서_비활성화_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+
+        Department dept = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("삭제가능부서-" + suffix)
+                .code("D" + suffix.toUpperCase())
+                .active(true)
+                .build());
+
+        mockMvc.perform(post("/admin/departments/{id}/delete", dept.getId())
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/departments"))
+                .andExpect(flash().attribute("successMessage", "부서가 비활성화되었습니다."));
+
+        Department deactivated = departmentRepository.findById(dept.getId()).orElseThrow();
+        assertThat(deactivated.isActive()).isFalse();
+    }
+
+    @Test
+    void 부서업로드_CSRF포함_정상요청_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+        MockMultipartFile file = createDepartmentUploadFile("UP" + suffix.toUpperCase(), "업로드부서-" + suffix, "");
+
+        mockMvc.perform(multipart("/admin/uploads/departments")
+                        .file(file)
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/departments"))
+                .andExpect(flash().attributeExists("uploadResult"));
+    }
+
+    @Test
+    void 부서업로드_CSRF실패시_403_처리_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+        MockMultipartFile file = createDepartmentUploadFile("CF" + suffix.toUpperCase(), "CSRF부서-" + suffix, "");
+
+        mockMvc.perform(multipart("/admin/uploads/departments")
+                        .file(file)
+                        .session(adminSession)
+                        .with(csrf().useInvalidToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 업로드_화면들_CSRF_토큰_렌더링_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+
+        String deptHtml = mockMvc.perform(get("/admin/departments").session(adminSession))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(deptHtml).contains("name=\"_csrf\"");
+        assertThat(deptHtml).contains("/admin/uploads/departments");
+
+        String empHtml = mockMvc.perform(get("/admin/employees").session(adminSession))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(empHtml).contains("name=\"_csrf\"");
+        assertThat(empHtml).contains("/admin/uploads/employees");
+
+        String questionHtml = mockMvc.perform(get("/admin/evaluation/templates/{id}/questions", 1L).session(adminSession))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(questionHtml).contains("name=\"_csrf\"");
+        assertThat(questionHtml).contains("/admin/evaluation/templates/1/questions/upload");
     }
 
     @Test
@@ -392,7 +644,7 @@ class SecurityAndAdminScenarioIntegrationTest {
 
         mockMvc.perform(get("/admin/evaluation/sessions/{id}", foreignSession.getId())
                         .session(adminSession))
-                .andExpect(status().isOk())
+                .andExpect(status().isNotFound())
                 .andExpect(view().name("error/error"))
                 .andExpect(model().attribute("errorCode", "SESSION_NOT_FOUND"));
     }
@@ -1106,6 +1358,40 @@ class SecurityAndAdminScenarioIntegrationTest {
 
     private String uniqueSuffix() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    }
+
+    private String resetPasswordAndExtractTemporaryPassword(MockHttpSession superSession, Long orgId, Long adminId) throws Exception {
+        MvcResult resetResult = mockMvc.perform(post("/super-admin/organizations/{orgId}/admins/{adminId}/reset-password", orgId, adminId)
+                        .session(superSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/super-admin/organizations/" + orgId))
+                .andReturn();
+        String successMessage = (String) resetResult.getFlashMap().get("successMessage");
+        int markerIdx = successMessage.lastIndexOf("임시 비밀번호: ");
+        return successMessage.substring(markerIdx + "임시 비밀번호: ".length()).trim();
+    }
+
+    private MockMultipartFile createDepartmentUploadFile(String code, String name, String parentCode) throws Exception {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("부서");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("부서코드(필수)");
+            header.createCell(1).setCellValue("부서명(필수)");
+            header.createCell(2).setCellValue("상위부서코드(선택)");
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue(code);
+            row.createCell(1).setCellValue(name);
+            row.createCell(2).setCellValue(parentCode);
+            workbook.write(out);
+            return new MockMultipartFile(
+                    "file",
+                    "departments.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    out.toByteArray()
+            );
+        }
     }
 
     private void upsertOrgSetting(Long orgId, String key, String value) {

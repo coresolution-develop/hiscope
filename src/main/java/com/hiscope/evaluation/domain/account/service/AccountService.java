@@ -81,6 +81,7 @@ public class AccountService {
                 Math.max(DEFAULT_TEMP_PASSWORD_LENGTH, organizationSettingService.resolvePasswordMinLength(orgId))
         );
         account.updatePassword(passwordEncoder.encode(temporaryPassword));
+        account.markPasswordChangeRequired();
         return temporaryPassword;
     }
 

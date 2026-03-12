@@ -39,6 +39,10 @@ public class Account extends BaseTimeEntity {
     @Builder.Default
     private String status = "ACTIVE";
 
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     public void updateStatus(String status) {
         this.status = status;
     }
@@ -50,5 +54,13 @@ public class Account extends BaseTimeEntity {
 
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public void markPasswordChangeRequired() {
+        this.mustChangePassword = true;
+    }
+
+    public void clearPasswordChangeRequired() {
+        this.mustChangePassword = false;
     }
 }

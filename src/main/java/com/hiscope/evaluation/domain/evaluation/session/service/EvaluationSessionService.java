@@ -5,6 +5,11 @@ import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.evaluation.assignment.service.EvaluationAssignmentService;
 import com.hiscope.evaluation.domain.evaluation.relationship.repository.EvaluationRelationshipRepository;
+import com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode;
+import com.hiscope.evaluation.domain.evaluation.rule.repository.RelationshipDefinitionSetRepository;
+import com.hiscope.evaluation.domain.evaluation.rule.service.LegacyRelationshipMirrorAdapter;
+import com.hiscope.evaluation.domain.evaluation.rule.service.RelationshipGenerationService;
+import com.hiscope.evaluation.domain.evaluation.rule.service.SessionRelationshipGenerationRunService;
 import com.hiscope.evaluation.domain.evaluation.response.repository.EvaluationResponseItemRepository;
 import com.hiscope.evaluation.domain.evaluation.response.repository.EvaluationResponseRepository;
 import com.hiscope.evaluation.domain.evaluation.session.dto.SessionCreateRequest;
@@ -36,6 +41,10 @@ public class EvaluationSessionService {
     private final EvaluationAssignmentRepository assignmentRepository;
     private final EvaluationResponseRepository responseRepository;
     private final EvaluationResponseItemRepository responseItemRepository;
+    private final RelationshipGenerationService relationshipGenerationService;
+    private final LegacyRelationshipMirrorAdapter legacyRelationshipMirrorAdapter;
+    private final RelationshipDefinitionSetRepository definitionSetRepository;
+    private final SessionRelationshipGenerationRunService generationRunService;
 
     public List<EvaluationSession> findAll(Long orgId) {
         SecurityUtils.checkOrgAccess(orgId);
@@ -121,6 +130,7 @@ public class EvaluationSessionService {
     public EvaluationSession create(Long orgId, SessionCreateRequest request) {
         SecurityUtils.checkOrgAccess(orgId);
         templateService.getByOrgAndId(orgId, request.getTemplateId());
+        validateRelationshipGenerationRequest(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId());
         EvaluationSession session = EvaluationSession.builder()
                 .organizationId(orgId)
                 .name(request.getName())
@@ -130,6 +140,8 @@ public class EvaluationSessionService {
                 .templateId(request.getTemplateId())
                 .allowResubmit(request.isAllowResubmit())
                 .createdBy(SecurityUtils.getCurrentUser().getId())
+                .relationshipGenerationMode(request.getRelationshipGenerationMode())
+                .relationshipDefinitionSetId(resolveDefinitionSetId(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId()))
                 .status("PENDING")
                 .build();
         return sessionRepository.save(session);
@@ -143,6 +155,34 @@ public class EvaluationSessionService {
     public void start(Long orgId, Long sessionId) {
         SecurityUtils.checkOrgAccess(orgId);
         EvaluationSession session = getByOrgAndId(orgId, sessionId);
+        if (session.isRuleBasedGeneration()) {
+            if (session.getRelationshipDefinitionSetId() == null) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT,
+                        "RULE_BASED 세션은 관계 정의 세트를 지정해야 시작할 수 있습니다.");
+            }
+            try {
+                var summary = relationshipGenerationService.generateForSession(orgId, sessionId, session.getRelationshipDefinitionSetId());
+                var finalRelationships = relationshipGenerationService.resolveFinalRelationships(orgId, sessionId);
+                legacyRelationshipMirrorAdapter.mirror(orgId, sessionId, finalRelationships);
+                long overrideAppliedCount = finalRelationships.stream()
+                        .filter(RelationshipGenerationService.FinalRelationship::overriddenByAdmin)
+                        .count();
+                generationRunService.recordSuccess(
+                        orgId,
+                        sessionId,
+                        RelationshipGenerationMode.RULE_BASED,
+                        summary,
+                        overrideAppliedCount,
+                        summary.finalRelationshipCount()
+                );
+            } catch (BusinessException e) {
+                generationRunService.recordFailure(orgId, sessionId, RelationshipGenerationMode.RULE_BASED, e.getMessage());
+                throw e;
+            }
+        } else if (session.getRelationshipGenerationMode() == null) {
+            // 안전장치: 컬럼 도입 이전/비정상 데이터는 LEGACY 처리
+            session.configureRelationshipDefinition(RelationshipGenerationMode.LEGACY, null);
+        }
         session.start();
         // Assignment 스냅샷 생성
         assignmentService.createAssignmentsForSession(session);
@@ -160,9 +200,14 @@ public class EvaluationSessionService {
     public void update(Long orgId, Long sessionId, SessionCreateRequest request) {
         SecurityUtils.checkOrgAccess(orgId);
         templateService.getByOrgAndId(orgId, request.getTemplateId());
+        validateRelationshipGenerationRequest(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId());
         EvaluationSession session = getByOrgAndId(orgId, sessionId);
         session.update(request.getName(), request.getDescription(),
                 request.getStartDate(), request.getEndDate(), request.getTemplateId(), request.isAllowResubmit());
+        session.configureRelationshipDefinition(
+                request.getRelationshipGenerationMode(),
+                resolveDefinitionSetId(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId())
+        );
     }
 
     @Transactional
@@ -214,6 +259,8 @@ public class EvaluationSessionService {
                 .templateId(source.getTemplateId())
                 .allowResubmit(source.isAllowResubmit())
                 .createdBy(SecurityUtils.getCurrentUser().getId())
+                .relationshipGenerationMode(source.getRelationshipGenerationMode())
+                .relationshipDefinitionSetId(source.getRelationshipDefinitionSetId())
                 .status("PENDING")
                 .build());
 
@@ -295,6 +342,26 @@ public class EvaluationSessionService {
     public EvaluationSession getByOrgAndId(Long orgId, Long id) {
         return sessionRepository.findByOrganizationIdAndId(orgId, id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
+    }
+
+    private void validateRelationshipGenerationRequest(RelationshipGenerationMode mode, Long definitionSetId) {
+        if (mode == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "관계 생성 방식을 선택해주세요.");
+        }
+        if (mode == RelationshipGenerationMode.RULE_BASED && definitionSetId == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "RULE_BASED 세션은 관계 정의 세트를 선택해야 합니다.");
+        }
+        if (mode == RelationshipGenerationMode.RULE_BASED
+                && definitionSetRepository.findByIdAndActiveTrue(definitionSetId).isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "선택한 관계 정의 세트가 없거나 비활성화 상태입니다.");
+        }
+    }
+
+    private Long resolveDefinitionSetId(RelationshipGenerationMode mode, Long definitionSetId) {
+        if (mode == RelationshipGenerationMode.RULE_BASED) {
+            return definitionSetId;
+        }
+        return null;
     }
 
     public record SessionCountSummary(long total, long pending, long inProgress, long closed) {

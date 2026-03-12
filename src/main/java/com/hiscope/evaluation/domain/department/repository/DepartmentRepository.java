@@ -19,6 +19,8 @@ public interface DepartmentRepository extends JpaRepository<Department, Long>, J
 
     boolean existsByOrganizationIdAndCodeAndIdNot(Long organizationId, String code, Long id);
 
+    boolean existsByOrganizationIdAndParentId(Long organizationId, Long parentId);
+
     /** DepartmentService.getByCode() 전용 — 메모리 필터 대신 DB 쿼리로 교체 */
     Optional<Department> findByOrganizationIdAndCode(Long organizationId, String code);
 }

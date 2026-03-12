@@ -17,14 +17,14 @@ import java.nio.file.Paths;
 
 /**
  * 앱 시작 시 엑셀 업로드용 템플릿 파일 생성
- * src/main/resources/static/templates/ 에 생성
+ * src/main/resources/static/excel-templates/ 에 생성
  */
 @Slf4j
 @Component
 @Order(1)
 public class ExcelTemplateGenerator implements ApplicationRunner {
 
-    private static final String TEMPLATE_PATH = "src/main/resources/static/templates/";
+    private static final String TEMPLATE_PATH = "src/main/resources/static/excel-templates/";
 
     @Override
     public void run(ApplicationArguments args) {
@@ -70,23 +70,81 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             Sheet sheet = wb.createSheet("직원");
             CellStyle headerStyle = ExcelUtils.createHeaderStyle(wb);
             Row header = sheet.createRow(0);
-            String[] cols = {"사원번호(필수)", "이름(필수)", "부서코드(필수)", "직위", "직책", "이메일", "로그인ID(필수)", "상태(ACTIVE/INACTIVE/LEAVE)"};
+            String[] cols = {
+                    "사원번호(필수)", "이름(필수)", "부서코드(필수)", "직위", "직책", "이메일", "로그인ID(필수)", "상태(ACTIVE/INACTIVE/LEAVE)",
+                    "경혁팀(Y/N)", "경혁팀장(Y/N)", "부서장(Y/N)", "1인부서(Y/N)", "의료리더(Y/N)", "기관장(Y/N)", "소속장(Y/N)", "평가제외(Y/N)",
+                    "attr:clinical_track(선택)", "attr:peer_group(선택)"
+            };
             for (int i = 0; i < cols.length; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(cols[i]);
                 cell.setCellStyle(headerStyle);
                 sheet.setColumnWidth(i, 6000);
             }
-            Row ex = sheet.createRow(1);
-            ex.createCell(0).setCellValue("E099"); ex.createCell(1).setCellValue("홍길동");
-            ex.createCell(2).setCellValue("HR"); ex.createCell(3).setCellValue("대리");
-            ex.createCell(4).setCellValue("팀원"); ex.createCell(5).setCellValue("hong@example.com");
-            ex.createCell(6).setCellValue("hong99"); ex.createCell(7).setCellValue("ACTIVE");
+            Row valid = sheet.createRow(1);
+            valid.createCell(0).setCellValue("E099");
+            valid.createCell(1).setCellValue("홍길동");
+            valid.createCell(2).setCellValue("HR");
+            valid.createCell(3).setCellValue("대리");
+            valid.createCell(4).setCellValue("팀원");
+            valid.createCell(5).setCellValue("hong@example.com");
+            valid.createCell(6).setCellValue("hong99");
+            valid.createCell(7).setCellValue("ACTIVE");
+            valid.createCell(8).setCellValue("Y");
+            valid.createCell(9).setCellValue("Y");
+            valid.createCell(10).setCellValue("N");
+            valid.createCell(11).setCellValue("N");
+            valid.createCell(12).setCellValue("N");
+            valid.createCell(13).setCellValue("N");
+            valid.createCell(14).setCellValue("N");
+            valid.createCell(15).setCellValue("N");
+            valid.createCell(16).setCellValue("수술계");
+            valid.createCell(17).setCellValue("A군");
+
+            Row invalid = sheet.createRow(2);
+            invalid.createCell(0).setCellValue("E100");
+            invalid.createCell(1).setCellValue("김오류");
+            invalid.createCell(2).setCellValue("HR");
+            invalid.createCell(3).setCellValue("사원");
+            invalid.createCell(4).setCellValue("팀원");
+            invalid.createCell(5).setCellValue("error@example.com");
+            invalid.createCell(6).setCellValue("bad id");
+            invalid.createCell(7).setCellValue("WORKING");
+            invalid.createCell(8).setCellValue("MAYBE");
+            invalid.createCell(16).setCellValue(" ");
+
+            Sheet guide = wb.createSheet("가이드");
+            guide.setColumnWidth(0, 9000);
+            guide.setColumnWidth(1, 18000);
+            guide.setColumnWidth(2, 18000);
+            guide.setColumnWidth(3, 24000);
+            Row gHeader = guide.createRow(0);
+            gHeader.createCell(0).setCellValue("항목");
+            gHeader.createCell(1).setCellValue("올바른 입력 예시");
+            gHeader.createCell(2).setCellValue("잘못된 입력 예시");
+            gHeader.createCell(3).setCellValue("설명");
+            for (int i = 0; i < 4; i++) {
+                gHeader.getCell(i).setCellStyle(headerStyle);
+            }
+            addGuideRow(guide, 1, "로그인ID", "nurse001", "nurse 001", "4~50자, 영문/숫자/._- 만 허용");
+            addGuideRow(guide, 2, "상태", "ACTIVE", "WORKING", "ACTIVE/INACTIVE/LEAVE만 허용");
+            addGuideRow(guide, 3, "boolean 속성", "Y, N, true, false, 1, 0", "MAYBE", "병원형 boolean 속성은 Y/N 계열만 허용");
+            addGuideRow(guide, 4, "독립 속성 원칙", "경혁팀=Y, 경혁팀장=Y, 부서장=N", "경혁팀장=Y 이므로 부서장=Y로 추론", "병원형 속성은 각각 독립 관리하며 상호 추론하지 않음");
+            addGuideRow(guide, 5, "자유 속성 컬럼명", "attr:clinical_track", "clinical_track", "반드시 attr: 접두사 또는 속성: 접두사 사용");
+            addGuideRow(guide, 6, "자유 속성 값", "A군, 수술계", "(공백만 입력)", "공백만 입력 시 미입력으로 처리");
 
             try (FileOutputStream fos = new FileOutputStream(TEMPLATE_PATH + "emp_template.xlsx")) {
                 wb.write(fos);
             }
         }
+    }
+
+    private void addGuideRow(Sheet guide, int rowIndex, String item, String good, String bad, String desc) {
+        Row row = guide.createRow(rowIndex);
+        row.createCell(0).setCellValue(item);
+        row.createCell(1).setCellValue(good);
+        row.createCell(2).setCellValue(bad);
+        row.createCell(3).setCellValue(desc);
     }
 
     private void createQuestionTemplate() throws IOException {

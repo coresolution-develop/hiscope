@@ -3,13 +3,15 @@ package com.hiscope.evaluation.domain.upload.controller;
 import com.hiscope.evaluation.common.audit.AuditLogger;
 import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
+import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
 import com.hiscope.evaluation.domain.upload.service.UploadService;
+import com.hiscope.evaluation.domain.upload.service.UploadTemplateService;
 import com.hiscope.evaluation.domain.upload.service.UploadValidationService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.time.LocalDate;
 
 @Controller
@@ -31,6 +34,7 @@ public class UploadController {
 
     private final UploadService uploadService;
     private final UploadValidationService uploadValidationService;
+    private final UploadTemplateService uploadTemplateService;
     private final AuditLogger auditLogger;
 
     @Value("${app.operations.upload-history-view-limit:1000}")
@@ -142,26 +146,40 @@ public class UploadController {
 
     @GetMapping("/template/departments")
     public ResponseEntity<Resource> downloadDeptTemplate() {
-        return downloadTemplate("templates/dept_template.xlsx", "부서_업로드_템플릿.xlsx");
+        return downloadTemplate(uploadTemplateService.loadDepartmentTemplate(), "부서_업로드_템플릿.xlsx", "DEPARTMENT");
     }
 
     @GetMapping("/template/employees")
     public ResponseEntity<Resource> downloadEmpTemplate() {
-        return downloadTemplate("templates/emp_template.xlsx", "직원_업로드_템플릿.xlsx");
+        return downloadTemplate(uploadTemplateService.loadEmployeeTemplate(), "직원_업로드_템플릿.xlsx", "EMPLOYEE");
     }
 
     @GetMapping("/template/questions")
     public ResponseEntity<Resource> downloadQuestionTemplate() {
-        return downloadTemplate("templates/question_template.xlsx", "평가문항_업로드_템플릿.xlsx");
+        return downloadTemplate(uploadTemplateService.loadQuestionTemplate(), "평가문항_업로드_템플릿.xlsx", "QUESTION");
     }
 
-    private ResponseEntity<Resource> downloadTemplate(String path, String filename) {
-        Resource resource = new ClassPathResource(path);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(resource);
+    private ResponseEntity<Resource> downloadTemplate(Resource resource, String filename, String templateType) {
+        try {
+            auditLogger.success("UPLOAD_TEMPLATE_DOWNLOAD", "UPLOAD_TEMPLATE", templateType,
+                    AuditDetail.of("filename", filename));
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.attachment()
+                                    .filename(filename, StandardCharsets.UTF_8)
+                                    .build()
+                                    .toString())
+                    .contentLength(resource.contentLength())
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(resource);
+        } catch (IOException e) {
+            auditLogger.fail("UPLOAD_TEMPLATE_DOWNLOAD", "UPLOAD_TEMPLATE", templateType, e.getMessage());
+            throw new BusinessException(ErrorCode.EXCEL_TEMPLATE_NOT_FOUND,
+                    "템플릿 파일을 읽는 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
+        } catch (RuntimeException e) {
+            auditLogger.fail("UPLOAD_TEMPLATE_DOWNLOAD", "UPLOAD_TEMPLATE", templateType, e.getMessage());
+            throw e;
+        }
     }
 
     private String normalizeUploadType(String uploadType) {

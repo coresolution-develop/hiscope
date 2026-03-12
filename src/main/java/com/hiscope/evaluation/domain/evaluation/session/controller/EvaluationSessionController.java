@@ -5,6 +5,8 @@ import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.evaluation.session.dto.SessionCreateRequest;
+import com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode;
+import com.hiscope.evaluation.domain.evaluation.rule.repository.RelationshipDefinitionSetRepository;
 import com.hiscope.evaluation.domain.evaluation.session.service.EvaluationSessionService;
 import com.hiscope.evaluation.domain.evaluation.session.service.read.EvaluationSessionReadService;
 import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
@@ -34,6 +36,7 @@ public class EvaluationSessionController {
     private final EvaluationSessionReadService sessionReadService;
     private final AuditLogger auditLogger;
     private final OrganizationSettingService organizationSettingService;
+    private final RelationshipDefinitionSetRepository definitionSetRepository;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
@@ -65,6 +68,9 @@ public class EvaluationSessionController {
         createRequest.setEndDate(defaultStartDate.plusDays(
                 organizationSettingService.resolveSessionDefaultDurationDays(orgId)
         ));
+        createRequest.setRelationshipGenerationMode(RelationshipGenerationMode.LEGACY);
+        definitionSetRepository.findByOrganizationIdAndIsDefaultTrueAndActiveTrue(orgId)
+                .ifPresent(set -> createRequest.setRelationshipDefinitionSetId(set.getId()));
         model.addAttribute("request", createRequest);
         return "admin/evaluation/sessions/list";
     }
@@ -256,6 +262,7 @@ public class EvaluationSessionController {
         var session = sessionService.findById(orgId, id);
         model.addAttribute("evalSession", session);
         model.addAttribute("templates", templateService.findAll(orgId));
+        model.addAttribute("relationshipDefinitionSets", definitionSetRepository.findByOrganizationIdOrderByNameAsc(orgId));
         if (request != null) {
             model.addAttribute("updateRequest", request);
         } else if (!model.containsAttribute("updateRequest")) {
@@ -266,6 +273,12 @@ public class EvaluationSessionController {
             updateRequest.setEndDate(session.getEndDate());
             updateRequest.setTemplateId(session.getTemplateId());
             updateRequest.setAllowResubmit(session.isAllowResubmit());
+            updateRequest.setRelationshipGenerationMode(
+                    session.getRelationshipGenerationMode() != null
+                            ? session.getRelationshipGenerationMode()
+                            : RelationshipGenerationMode.LEGACY
+            );
+            updateRequest.setRelationshipDefinitionSetId(session.getRelationshipDefinitionSetId());
             model.addAttribute("updateRequest", updateRequest);
         }
         model.addAttribute("openEditForm", openEditForm);
@@ -360,6 +373,7 @@ public class EvaluationSessionController {
         model.addAttribute("sortBy", sortBy);
         model.addAttribute("sortDir", sortDir);
         model.addAttribute("templates", templateService.findAll(orgId));
+        model.addAttribute("relationshipDefinitionSets", definitionSetRepository.findByOrganizationIdOrderByNameAsc(orgId));
         model.addAttribute("totalSessionCount", summary.total());
         model.addAttribute("pendingSessionCount", summary.pending());
         model.addAttribute("inProgressSessionCount", summary.inProgress());

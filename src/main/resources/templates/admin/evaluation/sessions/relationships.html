@@ -10,6 +10,56 @@
         <small class="text-muted" th:text="${evalSession.name}"></small>
     </div>
 </div>
+<div class="alert alert-info py-2" th:if="${evalSession.relationshipGenerationMode == T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">
+    RULE_BASED 모드입니다. 자동 생성 후 관리자 override(ADD/REMOVE)로 최종 관계를 조정합니다.
+</div>
+<div class="alert alert-secondary py-2" th:if="${compareCommon != null}">
+    LEGACY 비교 요약:
+    공통 <strong th:text="${compareCommon}">0</strong>건 /
+    RULE_BASED 전용 <strong th:text="${compareOnlyRule}">0</strong>건 /
+    LEGACY 전용 <strong th:text="${compareOnlyLegacy}">0</strong>건
+</div>
+<div class="card mb-3" th:if="${generationRuns != null and !#lists.isEmpty(generationRuns)}">
+    <div class="card-header fw-semibold">최근 자동 생성 실행 이력</div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-striped align-middle mb-0">
+            <thead>
+            <tr>
+                <th>실행시각</th><th>실행자</th><th>상태</th><th>모드</th><th>생성</th><th>제외</th><th>자기제거</th><th>중복제거</th><th>override</th><th>최종</th><th>룰별건수</th><th>실패사유</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="run : ${generationRuns}">
+                <td th:text="${#temporals.format(run.executedAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                <td>
+                    <div th:text="${run.executedByLoginId != null ? run.executedByLoginId : (run.executedBy != null ? ('#' + run.executedBy) : '-')}"></div>
+                </td>
+                <td><span th:text="${run.status}" th:class="${run.status == 'SUCCESS'} ? 'badge bg-success' : 'badge bg-danger'"></span></td>
+                <td th:text="${run.generationMode}"></td>
+                <td th:text="${run.generatedCount}"></td>
+                <td th:text="${run.excludedCount}"></td>
+                <td th:text="${run.selfRemovedCount}"></td>
+                <td th:text="${run.deduplicatedCount}"></td>
+                <td th:text="${run.overrideAppliedCount}"></td>
+                <td th:text="${run.finalCount}"></td>
+                <td>
+                    <table class="table table-sm table-borderless mb-0 small"
+                           th:if="${ruleStatsByRunId[run.id] != null and !#maps.isEmpty(ruleStatsByRunId[run.id])}">
+                        <tbody>
+                        <tr th:each="entry : ${ruleStatsByRunId[run.id].entrySet()}">
+                            <td class="text-muted pe-2" th:text="'rule#' + ${entry.key}"></td>
+                            <td class="fw-semibold" th:text="${entry.value} + '건'"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <span class="small text-muted" th:if="${ruleStatsByRunId[run.id] == null or #maps.isEmpty(ruleStatsByRunId[run.id])}">-</span>
+                </td>
+                <td class="small text-danger" th:text="${run.errorMessage} ?: '-'"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <div class="row g-3 mb-3">
     <div class="col-md-3">
@@ -52,7 +102,7 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span class="fw-semibold">
-                    평가 관계 (<span th:text="${totalRelationshipCount}">0</span>개,
+                    최종 평가 관계 (<span th:text="${totalRelationshipCount}">0</span>개,
                     활성: <span th:text="${activeRelationshipCount}">0</span>개)
                 </span>
                 <form th:if="${evalSession.pending}"
@@ -67,8 +117,15 @@
                     <input type="hidden" name="sortBy" th:value="${sortBy}">
                     <input type="hidden" name="sortDir" th:value="${sortDir}">
                     <button type="submit" class="btn btn-success btn-sm"
-                            onclick="return confirm('자동으로 평가 관계를 생성합니다. 기존 자동 생성 관계는 재생성됩니다. 계속하시겠습니까?')">
+                            onclick="return confirm('자동 생성 파이프라인을 실행합니다. RULE_BASED는 생성 후 override를 병합하여 최종 관계를 재반영합니다. 계속하시겠습니까?')">
                         <i class="bi bi-magic me-1"></i>자동 생성
+                    </button>
+                </form>
+                <form th:if="${evalSession.pending and evalSession.relationshipGenerationMode == T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}"
+                      th:action="@{/admin/evaluation/sessions/{id}/relationships/compare-legacy(id=${evalSession.id})}"
+                      method="post">
+                    <button type="submit" class="btn btn-outline-dark btn-sm">
+                        <i class="bi bi-shuffle me-1"></i>LEGACY 비교
                     </button>
                 </form>
             </div>
@@ -138,7 +195,7 @@
             </div>
             <div class="card-body p-0">
                 <table class="table table-sm table-hover mb-0">
-                    <thead><tr><th>평가자</th><th>피평가자</th><th>유형</th><th>출처</th><th>활성</th><th th:if="${evalSession.pending}">관리</th></tr></thead>
+                    <thead><tr><th>평가자</th><th>피평가자</th><th>유형</th><th>출처</th><th>생성 근거</th><th>활성</th><th th:if="${evalSession.pending}">관리</th></tr></thead>
                     <tbody>
                     <tr th:each="r : ${relationships}"
                         th:classappend="${!r.active} ? ' table-secondary text-muted' : ''">
@@ -161,6 +218,14 @@
                             <span th:if="${r.source == 'AUTO_GENERATED'}" class="badge bg-light text-dark border">자동</span>
                             <span th:if="${r.source != 'AUTO_GENERATED'}" class="badge bg-dark">수동</span>
                         </td>
+                        <td class="small">
+                            <span th:if="${sourceRuleMap[r.evaluatorId + '_' + r.evaluateeId] != null}"
+                                  th:text="|rule#${sourceRuleMap[r.evaluatorId + '_' + r.evaluateeId]}|">rule#1</span>
+                            <span th:if="${sourceRuleMap[r.evaluatorId + '_' + r.evaluateeId] == null}"
+                                  class="text-muted">-</span>
+                            <span th:if="${overrideAppliedMap[r.evaluatorId + '_' + r.evaluateeId] == true}"
+                                  class="badge bg-warning text-dark ms-1">override</span>
+                        </td>
                         <td>
                             <span th:if="${r.active}" class="badge bg-success">활성</span>
                             <span th:if="${!r.active}" class="badge bg-secondary">비활성</span>
@@ -182,7 +247,7 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(relationships)}">
-                        <td colspan="6" class="text-center text-muted py-4">
+                        <td th:attr="colspan=${evalSession.pending} ? 7 : 6" class="text-center text-muted py-4">
                             평가 관계가 없습니다. [자동 생성] 버튼을 클릭해주세요.
                         </td>
                     </tr>
@@ -250,7 +315,13 @@
                     </div>
                     <div class="mb-3">
                         <p class="small text-muted mb-0">
-                            <i class="bi bi-info-circle me-1"></i>수동 추가된 관계는 자동 생성 시에도 삭제되지 않습니다.
+                            <i class="bi bi-info-circle me-1"></i>
+                            <span th:if="${evalSession.relationshipGenerationMode == T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">
+                                RULE_BASED에서는 ADD override로 저장됩니다.
+                            </span>
+                            <span th:if="${evalSession.relationshipGenerationMode != T(com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode).RULE_BASED}">
+                                수동 추가된 관계는 자동 생성 시에도 삭제되지 않습니다.
+                            </span>
                         </p>
                     </div>
                     <button type="submit" class="btn btn-dark btn-sm w-100">
