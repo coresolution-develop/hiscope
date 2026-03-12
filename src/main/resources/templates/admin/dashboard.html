@@ -77,6 +77,42 @@
 </div>
 
 <div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 bg-light p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="h4 fw-bold mb-0 text-warning" th:text="${dashboard.deadlineSoonSessions}">0</div>
+                    <div class="small text-muted">7일 내 마감 세션</div>
+                </div>
+                <i class="bi bi-hourglass-split h3 text-warning mb-0"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 bg-light p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="h4 fw-bold mb-0 text-danger" th:text="${dashboard.overdueInProgressSessions}">0</div>
+                    <div class="small text-muted">마감 경과 진행중 세션</div>
+                </div>
+                <i class="bi bi-exclamation-octagon h3 text-danger mb-0"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 bg-light p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="h4 fw-bold mb-0 text-secondary" th:text="${dashboard.failedOperationsLast7Days}">0</div>
+                    <div class="small text-muted">최근 7일 실패 작업</div>
+                </div>
+                <i class="bi bi-shield-x h3 text-secondary mb-0"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
     <div class="col-md-6">
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -85,7 +121,7 @@
             </div>
             <div class="card-body p-0">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>세션명</th><th>상태</th><th>제출률</th></tr></thead>
+                    <thead><tr><th>세션명</th><th>상태</th><th>마감</th><th>제출률</th></tr></thead>
                     <tbody>
                     <tr th:each="sp : ${dashboard.sessionProgressList}">
                         <td>
@@ -97,12 +133,17 @@
                                   th:class="${sp.status == 'PENDING'} ? 'badge bg-secondary' : (${sp.status == 'IN_PROGRESS'} ? 'badge bg-primary' : 'badge bg-success')"></span>
                         </td>
                         <td class="small">
+                            <div th:text="${sp.endDate != null ? sp.endDate : '-'}"></div>
+                            <div class="text-muted"
+                                 th:text="${sp.daysUntilDeadline != null ? (sp.daysUntilDeadline >= 0 ? 'D-' + sp.daysUntilDeadline : 'D+' + (-sp.daysUntilDeadline)) : '-'}"></div>
+                        </td>
+                        <td class="small">
                             <span th:text="${sp.submittedAssignments + ' / ' + sp.totalAssignments}"></span>
                             <span class="text-muted" th:text="${' (' + sp.submissionRate + '%)'}"></span>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(dashboard.sessionProgressList)}">
-                        <td colspan="3" class="text-center text-muted py-4">평가 세션이 없습니다.</td>
+                        <td colspan="4" class="text-center text-muted py-4">평가 세션이 없습니다.</td>
                     </tr>
                     </tbody>
                 </table>
@@ -130,9 +171,71 @@
             </div>
         </div>
     </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold"><i class="bi bi-person-lines-fill me-2"></i>평가자 미제출 상위</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>평가자</th><th>부서</th><th>미제출</th><th>진행률</th></tr></thead>
+                    <tbody>
+                    <tr th:each="ep : ${dashboard.pendingEvaluatorProgressList}">
+                        <td class="small">
+                            <div class="fw-semibold" th:text="${ep.evaluatorName}"></div>
+                            <div class="text-muted" th:text="${ep.evaluatorEmployeeNumber != null ? ep.evaluatorEmployeeNumber : '-'}"></div>
+                        </td>
+                        <td th:text="${ep.evaluatorDepartmentName != null ? ep.evaluatorDepartmentName : '미지정'}"></td>
+                        <td><span class="badge bg-danger" th:text="${ep.pendingAssignments}">0</span></td>
+                        <td th:text="${ep.submissionRate + '%'}"></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(dashboard.pendingEvaluatorProgressList)}">
+                        <td colspan="4" class="text-center text-muted py-4">미제출이 남은 평가자가 없습니다.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold"><i class="bi bi-alarm me-2"></i>마감 임박 세션</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>세션명</th><th>마감일</th><th>D-Day</th><th>제출률</th></tr></thead>
+                    <tbody>
+                    <tr th:each="a : ${dashboard.deadlineAlerts}">
+                        <td>
+                            <a th:href="@{/admin/evaluation/sessions/{id}(id=${a.sessionId})}"
+                               th:text="${a.sessionName}" class="text-decoration-none fw-semibold"></a>
+                        </td>
+                        <td th:text="${a.endDate}">-</td>
+                        <td>
+                            <span class="badge bg-danger" th:if="${a.daysUntilDeadline < 0}" th:text="${'D+' + (-a.daysUntilDeadline)}">D+0</span>
+                            <span class="badge bg-warning text-dark" th:if="${a.daysUntilDeadline >= 0}" th:text="${'D-' + a.daysUntilDeadline}">D-0</span>
+                        </td>
+                        <td th:text="${a.submissionRate + '%'}">0%</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(dashboard.deadlineAlerts)}">
+                        <td colspan="4" class="text-center text-muted py-4">진행 중 세션이 없습니다.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-lightning-charge me-2"></i>바로가기</div>
+            <div class="card-body d-flex flex-wrap gap-2">
+                <a href="/admin/evaluation/sessions" class="btn btn-outline-primary btn-sm">평가 세션 관리</a>
+                <a href="/admin/evaluation/results" class="btn btn-outline-primary btn-sm">결과 조회</a>
+                <a href="/admin/uploads/history" class="btn btn-outline-primary btn-sm">업로드 이력</a>
+                <a href="/admin/audit" class="btn btn-outline-primary btn-sm">감사 로그</a>
+            </div>
+        </div>
+    </div>
     <div class="col-md-6">
         <div class="card h-100">
             <div class="card-header fw-semibold"><i class="bi bi-upload me-2"></i>최근 업로드 결과</div>
@@ -141,14 +244,19 @@
                     <thead><tr><th>유형</th><th>파일</th><th>결과</th><th>시각</th></tr></thead>
                     <tbody>
                     <tr th:each="up : ${dashboard.recentUploads}">
-                        <td th:text="${up.uploadType}"></td>
+                        <td th:text="${up.uploadTypeLabel}"></td>
                         <td class="small text-truncate" style="max-width: 180px;" th:text="${up.fileName}"></td>
                         <td>
                             <span class="badge bg-success" th:if="${up.status == 'SUCCESS'}">성공</span>
                             <span class="badge bg-warning text-dark" th:if="${up.status == 'PARTIAL'}">부분성공</span>
                             <span class="badge bg-danger" th:if="${up.status == 'FAILED'}">실패</span>
+                            <span class="small text-muted ms-1"
+                                  th:text="${up.successRows + '/' + up.totalRows + ' (실패 ' + up.failRows + ')'}"></span>
                         </td>
-                        <td class="small text-muted" th:text="${#temporals.format(up.createdAt, 'MM-dd HH:mm')}"></td>
+                        <td class="small text-muted">
+                            <div th:text="${#temporals.format(up.createdAt, 'MM-dd HH:mm')}"></div>
+                            <a th:href="${up.historyLink}" class="text-decoration-none small">이력 보기</a>
+                        </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(dashboard.recentUploads)}">
                         <td colspan="4" class="text-center text-muted py-4">최근 업로드 이력이 없습니다.</td>
@@ -163,11 +271,18 @@
             <div class="card-header fw-semibold"><i class="bi bi-clock-history me-2"></i>최근 작업 이력</div>
             <div class="card-body p-0">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>시각</th><th>작업</th><th>결과</th><th>사용자</th></tr></thead>
+                    <thead><tr><th>시각</th><th>작업</th><th>대상</th><th>결과</th><th>사용자</th></tr></thead>
                     <tbody>
                     <tr th:each="act : ${dashboard.recentActivities}">
                         <td class="small text-muted" th:text="${#temporals.format(act.occurredAt, 'MM-dd HH:mm')}"></td>
-                        <td class="small" th:text="${act.action}"></td>
+                        <td class="small">
+                            <div class="fw-semibold" th:text="${act.actionLabel}"></div>
+                            <div class="text-muted text-truncate" style="max-width: 180px;" th:text="${act.detail}"></div>
+                        </td>
+                        <td class="small">
+                            <a th:if="${act.targetLink != null}" th:href="${act.targetLink}" class="text-decoration-none" th:text="${act.targetLabel}"></a>
+                            <span th:if="${act.targetLink == null}" th:text="${act.targetLabel}"></span>
+                        </td>
                         <td>
                             <span class="badge bg-success" th:if="${act.outcome == 'SUCCESS'}">성공</span>
                             <span class="badge bg-danger" th:if="${act.outcome != 'SUCCESS'}">실패</span>
@@ -175,7 +290,7 @@
                         <td class="small text-muted" th:text="${act.actorLoginId != null ? act.actorLoginId : '-'}"></td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(dashboard.recentActivities)}">
-                        <td colspan="4" class="text-center text-muted py-4">최근 작업 이력이 없습니다.</td>
+                        <td colspan="5" class="text-center text-muted py-4">최근 작업 이력이 없습니다.</td>
                     </tr>
                     </tbody>
                 </table>

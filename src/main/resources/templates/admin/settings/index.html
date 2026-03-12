@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>운영 설정</title></head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-sliders me-2 text-primary"></i>운영 설정</h4>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header fw-semibold">기관 기본 정책</div>
+            <div class="card-body">
+                <form th:action="@{/admin/settings}" method="post" th:object="${request}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">업로드 최대 행수</label>
+                        <input type="number" th:field="*{uploadMaxRows}"
+                               th:classappend="${#fields.hasErrors('uploadMaxRows')} ? ' is-invalid' : ''"
+                               class="form-control" min="100" max="20000">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('uploadMaxRows')}" th:errors="*{uploadMaxRows}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">업로드 최대 파일 크기(MB)</label>
+                        <input type="number" th:field="*{uploadMaxFileSizeMb}"
+                               th:classappend="${#fields.hasErrors('uploadMaxFileSizeMb')} ? ' is-invalid' : ''"
+                               class="form-control" min="1" max="100">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('uploadMaxFileSizeMb')}" th:errors="*{uploadMaxFileSizeMb}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">업로드 허용 확장자</label>
+                        <input type="text" th:field="*{uploadAllowedExtensions}"
+                               th:classappend="${#fields.hasErrors('uploadAllowedExtensions')} ? ' is-invalid' : ''"
+                               class="form-control" placeholder="예: xlsx,csv">
+                        <div class="form-text">쉼표로 구분합니다. 예: `xlsx` 또는 `xlsx,csv`</div>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('uploadAllowedExtensions')}" th:errors="*{uploadAllowedExtensions}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">비밀번호 최소 길이</label>
+                        <input type="number" th:field="*{passwordMinLength}"
+                               th:classappend="${#fields.hasErrors('passwordMinLength')} ? ' is-invalid' : ''"
+                               class="form-control" min="8" max="50">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('passwordMinLength')}" th:errors="*{passwordMinLength}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">세션 기본 기간(일)</label>
+                        <input type="number" th:field="*{sessionDefaultDurationDays}"
+                               th:classappend="${#fields.hasErrors('sessionDefaultDurationDays')} ? ' is-invalid' : ''"
+                               class="form-control" min="1" max="365">
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('sessionDefaultDurationDays')}" th:errors="*{sessionDefaultDurationDays}"></div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" th:field="*{sessionDefaultAllowResubmit}" class="form-check-input" id="sessionDefaultAllowResubmit">
+                        <label class="form-check-label" for="sessionDefaultAllowResubmit">세션 생성 기본값: 제출 후 수정 허용</label>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">저장</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">현재 적용값</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-6 text-muted">업로드 최대 행수</dt>
+                    <dd class="col-6" th:text="${current.uploadMaxRows}">5000</dd>
+                    <dt class="col-6 text-muted">업로드 최대 파일 크기</dt>
+                    <dd class="col-6" th:text="${current.uploadMaxFileSizeMb + 'MB'}">10MB</dd>
+                    <dt class="col-6 text-muted">허용 확장자</dt>
+                    <dd class="col-6" th:text="${current.uploadAllowedExtensions}">xlsx</dd>
+                    <dt class="col-6 text-muted">비밀번호 최소 길이</dt>
+                    <dd class="col-6" th:text="${current.passwordMinLength + '자'}">8자</dd>
+                    <dt class="col-6 text-muted">세션 기본 기간</dt>
+                    <dd class="col-6" th:text="${current.sessionDefaultDurationDays + '일'}">14일</dd>
+                    <dt class="col-6 text-muted">기본 재제출 허용</dt>
+                    <dd class="col-6" th:text="${current.sessionDefaultAllowResubmit ? '허용' : '불가'}">불가</dd>
+                </dl>
+                <hr>
+                <p class="small text-muted mb-0">
+                    업로드 행수 제한은 부서/사용자/평가항목 엑셀 업로드 검증에 즉시 반영됩니다.
+                    세션 기본 정책은 세션 생성 폼 초기값에 반영됩니다.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

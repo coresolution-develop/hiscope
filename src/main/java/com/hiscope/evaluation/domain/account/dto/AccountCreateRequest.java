@@ -21,7 +21,7 @@ public class AccountCreateRequest {
     private String loginId;
 
     @NotBlank(message = "비밀번호는 필수입니다.")
-    @Size(min = 8, max = 50, message = "비밀번호는 8~50자여야 합니다.")
+    @Size(min = 1, max = 50, message = "비밀번호는 50자 이하여야 합니다.")
     private String password;
 
     @Size(max = 200)

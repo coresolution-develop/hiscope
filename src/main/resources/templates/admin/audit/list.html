@@ -17,6 +17,13 @@
                     <input type="number" name="organizationId" class="form-control form-control-sm" th:value="${organizationId}">
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">작업군</label>
+                    <select name="actionGroup" class="form-select form-select-sm">
+                        <option value="">전체</option>
+                        <option th:each="g : ${actionGroupOptions}" th:value="${g}" th:text="${g}" th:selected="${g == actionGroup}"></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label small text-muted mb-1">액션</label>
                     <select name="action" class="form-select form-select-sm">
                         <option value="">전체</option>
@@ -34,6 +41,28 @@
                 <div class="col-md-2">
                     <label class="form-label small text-muted mb-1">사용자</label>
                     <input name="actorLoginId" class="form-control form-control-sm" th:value="${actorLoginId}" placeholder="loginId">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">역할</label>
+                    <select name="actorRole" class="form-select form-select-sm">
+                        <option value="">전체</option>
+                        <option th:each="r : ${actorRoleOptions}" th:value="${r}" th:text="${r}" th:selected="${r == actorRole}"></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">IP</label>
+                    <input name="ipAddress" class="form-control form-control-sm" th:value="${ipAddress}" placeholder="IP contains">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">대상 타입</label>
+                    <select name="targetType" class="form-select form-select-sm">
+                        <option value="">전체</option>
+                        <option th:each="t : ${targetTypeOptions}" th:value="${t}" th:text="${t}" th:selected="${t == targetType}"></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">키워드</label>
+                    <input name="keyword" class="form-control form-control-sm" th:value="${keyword}" placeholder="대상/상세 검색">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted mb-1">요청 ID</label>
@@ -55,8 +84,34 @@
                         <option value="200" th:selected="${size == 200}">200</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">정렬</label>
+                    <select name="sortBy" class="form-select form-select-sm">
+                        <option value="occurredAt" th:selected="${sortBy == 'occurredAt'}">시각</option>
+                        <option value="action" th:selected="${sortBy == 'action'}">액션</option>
+                        <option value="outcome" th:selected="${sortBy == 'outcome'}">결과</option>
+                        <option value="actorLoginId" th:selected="${sortBy == 'actorLoginId'}">사용자</option>
+                        <option value="targetType" th:selected="${sortBy == 'targetType'}">대상 타입</option>
+                        <option value="organizationId" th:selected="${sortBy == 'organizationId'}">기관</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small text-muted mb-1">방향</label>
+                    <select name="sortDir" class="form-select form-select-sm">
+                        <option value="desc" th:selected="${sortDir == 'desc'}">내림</option>
+                        <option value="asc" th:selected="${sortDir == 'asc'}">오름</option>
+                    </select>
+                </div>
                 <div class="col-md-1">
                     <button type="submit" class="btn btn-primary btn-sm w-100">조회</button>
+                </div>
+                <div class="col-md-1">
+                    <a class="btn btn-outline-secondary btn-sm w-100"
+                       th:href="${superAdminView}
+                         ? @{/super-admin/audit/export.csv(organizationId=${organizationId},actionGroup=${actionGroup},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},actorRole=${actorRole},ipAddress=${ipAddress},targetType=${targetType},keyword=${keyword},requestId=${requestId},fromDate=${fromDate},toDate=${toDate},sortBy=${sortBy},sortDir=${sortDir})}
+                         : @{/admin/audit/export.csv(actionGroup=${actionGroup},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},actorRole=${actorRole},ipAddress=${ipAddress},targetType=${targetType},keyword=${keyword},requestId=${requestId},fromDate=${fromDate},toDate=${toDate},sortBy=${sortBy},sortDir=${sortDir})}">
+                        CSV
+                    </a>
                 </div>
             </div>
         </form>
@@ -115,8 +170,8 @@
             <li class="page-item" th:classappend="${auditPage.first} ? ' disabled'">
                 <a class="page-link"
                    th:href="${superAdminView}
-                     ? @{/super-admin/audit(page=${auditPage.number - 1},size=${size},organizationId=${organizationId},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},requestId=${requestId},fromDate=${fromDate},toDate=${toDate})}
-                     : @{/admin/audit(page=${auditPage.number - 1},size=${size},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},requestId=${requestId},fromDate=${fromDate},toDate=${toDate})}">이전</a>
+                     ? @{/super-admin/audit(page=${auditPage.number - 1},size=${size},organizationId=${organizationId},actionGroup=${actionGroup},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},actorRole=${actorRole},ipAddress=${ipAddress},targetType=${targetType},keyword=${keyword},requestId=${requestId},fromDate=${fromDate},toDate=${toDate},sortBy=${sortBy},sortDir=${sortDir})}
+                     : @{/admin/audit(page=${auditPage.number - 1},size=${size},actionGroup=${actionGroup},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},actorRole=${actorRole},ipAddress=${ipAddress},targetType=${targetType},keyword=${keyword},requestId=${requestId},fromDate=${fromDate},toDate=${toDate},sortBy=${sortBy},sortDir=${sortDir})}">이전</a>
             </li>
             <li class="page-item disabled">
                 <span class="page-link" th:text="|${auditPage.number + 1} / ${auditPage.totalPages}|">1 / 1</span>
@@ -124,8 +179,8 @@
             <li class="page-item" th:classappend="${auditPage.last} ? ' disabled'">
                 <a class="page-link"
                    th:href="${superAdminView}
-                     ? @{/super-admin/audit(page=${auditPage.number + 1},size=${size},organizationId=${organizationId},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},requestId=${requestId},fromDate=${fromDate},toDate=${toDate})}
-                     : @{/admin/audit(page=${auditPage.number + 1},size=${size},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},requestId=${requestId},fromDate=${fromDate},toDate=${toDate})}">다음</a>
+                     ? @{/super-admin/audit(page=${auditPage.number + 1},size=${size},organizationId=${organizationId},actionGroup=${actionGroup},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},actorRole=${actorRole},ipAddress=${ipAddress},targetType=${targetType},keyword=${keyword},requestId=${requestId},fromDate=${fromDate},toDate=${toDate},sortBy=${sortBy},sortDir=${sortDir})}
+                     : @{/admin/audit(page=${auditPage.number + 1},size=${size},actionGroup=${actionGroup},action=${action},outcome=${outcome},actorLoginId=${actorLoginId},actorRole=${actorRole},ipAddress=${ipAddress},targetType=${targetType},keyword=${keyword},requestId=${requestId},fromDate=${fromDate},toDate=${toDate},sortBy=${sortBy},sortDir=${sortDir})}">다음</a>
             </li>
         </ul>
     </nav>

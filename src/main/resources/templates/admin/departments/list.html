@@ -36,7 +36,31 @@
                     <option value="false" th:selected="${active == false}">비활성</option>
                 </select>
             </div>
-            <div class="col-md-5 d-flex gap-2">
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">정렬</label>
+                <select name="sortBy" class="form-select form-select-sm">
+                    <option value="name" th:selected="${sortBy == 'name'}">부서명</option>
+                    <option value="code" th:selected="${sortBy == 'code'}">코드</option>
+                    <option value="active" th:selected="${sortBy == 'active'}">상태</option>
+                    <option value="createdAt" th:selected="${sortBy == 'createdAt'}">생성일</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">방향</label>
+                <select name="sortDir" class="form-select form-select-sm">
+                    <option value="asc" th:selected="${sortDir == 'asc'}">오름</option>
+                    <option value="desc" th:selected="${sortDir == 'desc'}">내림</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">건수</label>
+                <select name="size" class="form-select form-select-sm">
+                    <option value="20" th:selected="${size == 20}">20</option>
+                    <option value="50" th:selected="${size == 50}">50</option>
+                    <option value="100" th:selected="${size == 100}">100</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex gap-2">
                 <button type="submit" class="btn btn-outline-primary btn-sm">적용</button>
                 <a href="/admin/departments" class="btn btn-outline-secondary btn-sm">초기화</a>
             </div>
@@ -71,6 +95,21 @@
         </table>
     </div>
 </div>
+<div class="d-flex justify-content-between align-items-center mt-3" th:if="${deptPage != null}">
+    <div class="small text-muted">
+        총 <span th:text="${deptPage.totalElements}">0</span>건
+    </div>
+    <div class="d-flex gap-2" th:if="${deptPage.totalPages > 1}">
+        <a class="btn btn-outline-secondary btn-sm"
+           th:classappend="${!deptPage.hasPrevious()} ? ' disabled'"
+           th:href="@{/admin/departments(page=${deptPage.hasPrevious() ? deptPage.number - 1 : 0},size=${size},keyword=${keyword},active=${active},sortBy=${sortBy},sortDir=${sortDir})}">이전</a>
+        <span class="small text-muted align-self-center"
+              th:text="${(deptPage.number + 1) + ' / ' + deptPage.totalPages}">1 / 1</span>
+        <a class="btn btn-outline-secondary btn-sm"
+           th:classappend="${!deptPage.hasNext()} ? ' disabled'"
+           th:href="@{/admin/departments(page=${deptPage.hasNext() ? deptPage.number + 1 : deptPage.number},size=${size},keyword=${keyword},active=${active},sortBy=${sortBy},sortDir=${sortDir})}">다음</a>
+    </div>
+</div>
 
 <!-- 부서 추가 모달 -->
 <div class="modal fade" id="addDeptModal" tabindex="-1">
@@ -91,7 +130,7 @@
                         <label class="form-label fw-semibold">상위 부서</label>
                         <select th:field="*{parentId}" class="form-select">
                             <option value="">없음 (최상위 부서)</option>
-                            <option th:each="dept : ${departments}" th:value="${dept.id}" th:text="${dept.name}"></option>
+                            <option th:each="dept : ${allDepartments}" th:value="${dept.id}" th:text="${dept.name}"></option>
                         </select>
                     </div>
                 </div>
@@ -123,7 +162,7 @@
                         <label class="form-label fw-semibold">상위 부서</label>
                         <select id="editParentId" name="parentId" class="form-select">
                             <option value="">없음</option>
-                            <option th:each="dept : ${departments}" th:value="${dept.id}" th:text="${dept.name}"></option>
+                            <option th:each="dept : ${allDepartments}" th:value="${dept.id}" th:text="${dept.name}"></option>
                         </select>
                     </div>
                 </div>

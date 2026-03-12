@@ -18,7 +18,7 @@ public class AuthAuditEventListener {
                 "AUTH_LOGIN",
                 "AUTH",
                 event.getAuthentication().getName(),
-                "로그인 성공"
+                AuditDetail.of("result", "success")
         );
     }
 

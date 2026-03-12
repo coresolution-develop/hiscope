@@ -199,7 +199,9 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">초기 비밀번호</label>
-                            <input type="password" th:field="*{password}" class="form-control" placeholder="비워두면 password123">
+                            <input type="password" th:field="*{password}" class="form-control"
+                                   th:placeholder="|비워두면 자동생성 (최소 ${passwordMinLength}자)|">
+                            <div class="form-text" th:text="|입력 시 기관 비밀번호 정책(최소 ${passwordMinLength}자)을 따릅니다.|"></div>
                         </div>
                     </div>
                 </div>

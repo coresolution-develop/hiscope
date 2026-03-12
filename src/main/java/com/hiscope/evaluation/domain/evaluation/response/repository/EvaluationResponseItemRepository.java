@@ -13,5 +13,7 @@ public interface EvaluationResponseItemRepository extends JpaRepository<Evaluati
 
     List<EvaluationResponseItem> findByResponseIdIn(Collection<Long> responseIds);
 
+    void deleteByResponseIdIn(Collection<Long> responseIds);
+
     Optional<EvaluationResponseItem> findByResponseIdAndQuestionId(Long responseId, Long questionId);
 }

@@ -35,7 +35,7 @@ public class EmployeeRequest {
     @Pattern(regexp = "^[a-zA-Z0-9._-]{4,50}$")
     private String loginId;
 
-    @Pattern(regexp = "^$|^.{8,50}$", message = "비밀번호는 8~50자여야 합니다.")
+    @Pattern(regexp = "^$|^.{1,50}$", message = "비밀번호는 50자 이하여야 합니다.")
     private String password; // null이면 비밀번호 유지 (수정 시)
 
     private String status = "ACTIVE";

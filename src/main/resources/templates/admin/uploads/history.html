@@ -74,10 +74,29 @@
                 <input id="uploadDateTo" name="dateTo" type="date" class="form-control form-control-sm"
                        th:value="${dateTo}">
             </div>
-            <div class="col-md-1">
+            <div class="col-md-2">
                 <label for="uploadKeyword" class="form-label small text-muted mb-1">파일명</label>
                 <input id="uploadKeyword" name="keyword" type="text" class="form-control form-control-sm" placeholder="검색"
                        th:value="${keyword}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">정렬</label>
+                <select name="sortBy" class="form-select form-select-sm">
+                    <option value="createdAt" th:selected="${sortBy == 'createdAt'}">업로드 일시</option>
+                    <option value="fileName" th:selected="${sortBy == 'fileName'}">파일명</option>
+                    <option value="uploadType" th:selected="${sortBy == 'uploadType'}">유형</option>
+                    <option value="status" th:selected="${sortBy == 'status'}">상태</option>
+                    <option value="successRows" th:selected="${sortBy == 'successRows'}">성공 행수</option>
+                    <option value="failRows" th:selected="${sortBy == 'failRows'}">실패 행수</option>
+                    <option value="totalRows" th:selected="${sortBy == 'totalRows'}">전체 행수</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">방향</label>
+                <select name="sortDir" class="form-select form-select-sm">
+                    <option value="desc" th:selected="${sortDir == 'desc'}">내림</option>
+                    <option value="asc" th:selected="${sortDir == 'asc'}">오름</option>
+                </select>
             </div>
             <div class="col-md-1 text-end">
                 <button type="submit" class="btn btn-outline-primary btn-sm w-100 mb-1">적용</button>

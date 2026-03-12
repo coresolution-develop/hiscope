@@ -28,6 +28,11 @@ Spring Boot + Thymeleaf + PostgreSQL + Flyway 기반으로 동작합니다.
 - 업로드 정책:
   - 빈 파일/확장자/파일 크기 검증 강화
   - 업로드 최대 행수 제한(`APP_UPLOAD_MAX_ROWS`, 기본 5,000행)
+- v1.0 B 범위 반영:
+  - 세션 복제 고도화(복제명 중복 방지/자동명 충돌 보정)
+  - 결과 CSV 확장(배정별 CSV 추가)
+  - 감사 로그 작업군(`actionGroup`) 필터 추가
+  - 대시보드 위험지표/미제출 상위 지표 추가
 
 ## 2. 로컬 실행
 
@@ -109,3 +114,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 - [INITIAL_MONITORING_CHECKLIST_FINAL.md](docs/INITIAL_MONITORING_CHECKLIST_FINAL.md)
 - [INCIDENT_FIRST_RESPONSE_GUIDE_FINAL.md](docs/INCIDENT_FIRST_RESPONSE_GUIDE_FINAL.md)
 - [STABILIZATION_BACKLOG_DRAFT.md](docs/STABILIZATION_BACKLOG_DRAFT.md)
+- [V1_A_SCOPE_STATUS.md](docs/V1_A_SCOPE_STATUS.md)
+- [V1_B_ENHANCEMENTS_STATUS.md](docs/V1_B_ENHANCEMENTS_STATUS.md)
+- [DEFAULT_SORT_FILTER_POLICY.md](docs/DEFAULT_SORT_FILTER_POLICY.md)

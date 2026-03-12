@@ -1,6 +1,7 @@
 package com.hiscope.evaluation.domain.upload.controller;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
@@ -41,11 +42,15 @@ public class UploadController {
                           @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dateFrom,
                           @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dateTo,
                           @RequestParam(required = false) String keyword,
+                          @RequestParam(required = false) String sortBy,
+                          @RequestParam(required = false) String sortDir,
                           Model model) {
         Long orgId = SecurityUtils.getCurrentOrgId();
         String normalizedType = normalizeUploadType(uploadType);
         String normalizedStatus = normalizeStatus(status);
         String normalizedKeyword = normalizeKeyword(keyword);
+        String normalizedSortBy = normalizeSortBy(sortBy);
+        String normalizedSortDir = normalizeSortDir(sortDir);
         model.addAttribute("histories", uploadService.findRecentHistory(
                 orgId,
                 uploadHistoryViewLimit,
@@ -53,7 +58,9 @@ public class UploadController {
                 normalizedStatus,
                 dateFrom,
                 dateTo,
-                normalizedKeyword
+                normalizedKeyword,
+                normalizedSortBy,
+                normalizedSortDir
         ));
         model.addAttribute("historyLimit", uploadHistoryViewLimit);
         model.addAttribute("uploadType", normalizedType);
@@ -61,6 +68,8 @@ public class UploadController {
         model.addAttribute("dateFrom", dateFrom);
         model.addAttribute("dateTo", dateTo);
         model.addAttribute("keyword", normalizedKeyword);
+        model.addAttribute("sortBy", normalizedSortBy);
+        model.addAttribute("sortDir", normalizedSortDir);
         return "admin/uploads/history";
     }
 
@@ -70,7 +79,7 @@ public class UploadController {
         try {
             var failureCsv = uploadService.buildFailureCsv(orgId, id);
             auditLogger.success("UPLOAD_ERROR_DOWNLOAD", "UPLOAD_HISTORY", String.valueOf(id),
-                    "errorCount=" + failureCsv.errorCount());
+                    AuditDetail.of("errorCount", failureCsv.errorCount()));
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + failureCsv.filename() + "\"")
                     .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
@@ -88,7 +97,14 @@ public class UploadController {
             uploadValidationService.validateExcelFile(file);
             UploadResult result = uploadService.uploadDepartments(orgId, file);
             ra.addFlashAttribute("uploadResult", result);
-            auditLogger.success("DEPT_UPLOAD", "UPLOAD_HISTORY", "-", "status=" + result.getStatus());
+            auditLogger.success("DEPT_UPLOAD", "UPLOAD_HISTORY", "-",
+                    AuditDetail.of(
+                            "fileName", result.getFileName(),
+                            "status", result.getStatus(),
+                            "totalRows", result.getTotalRows(),
+                            "successRows", result.getSuccessRows(),
+                            "failRows", result.getFailRows()
+                    ));
         } catch (BusinessException e) {
             auditLogger.fail("DEPT_UPLOAD", "UPLOAD_HISTORY", "-", e.getMessage());
             ra.addFlashAttribute("errorMessage", e.getMessage());
@@ -106,7 +122,14 @@ public class UploadController {
             uploadValidationService.validateExcelFile(file);
             UploadResult result = uploadService.uploadEmployees(orgId, file);
             ra.addFlashAttribute("uploadResult", result);
-            auditLogger.success("EMP_UPLOAD", "UPLOAD_HISTORY", "-", "status=" + result.getStatus());
+            auditLogger.success("EMP_UPLOAD", "UPLOAD_HISTORY", "-",
+                    AuditDetail.of(
+                            "fileName", result.getFileName(),
+                            "status", result.getStatus(),
+                            "totalRows", result.getTotalRows(),
+                            "successRows", result.getSuccessRows(),
+                            "failRows", result.getFailRows()
+                    ));
         } catch (BusinessException e) {
             auditLogger.fail("EMP_UPLOAD", "UPLOAD_HISTORY", "-", e.getMessage());
             ra.addFlashAttribute("errorMessage", e.getMessage());
@@ -160,5 +183,21 @@ public class UploadController {
             return null;
         }
         return keyword.trim();
+    }
+
+    private String normalizeSortBy(String sortBy) {
+        if ("uploadType".equals(sortBy) || "status".equals(sortBy) || "fileName".equals(sortBy)
+                || "successRows".equals(sortBy) || "failRows".equals(sortBy) || "totalRows".equals(sortBy)
+                || "createdAt".equals(sortBy)) {
+            return sortBy;
+        }
+        return "createdAt";
+    }
+
+    private String normalizeSortDir(String sortDir) {
+        if ("asc".equalsIgnoreCase(sortDir)) {
+            return "asc";
+        }
+        return "desc";
     }
 }

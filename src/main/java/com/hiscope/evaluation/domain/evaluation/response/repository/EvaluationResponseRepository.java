@@ -11,6 +11,8 @@ public interface EvaluationResponseRepository extends JpaRepository<EvaluationRe
 
     Optional<EvaluationResponse> findByAssignmentId(Long assignmentId);
 
+    List<EvaluationResponse> findByAssignmentIdIn(Collection<Long> assignmentIds);
+
     List<EvaluationResponse> findByOrganizationIdAndFinalSubmitTrueAndAssignmentIdIn(Long organizationId,
                                                                                       Collection<Long> assignmentIds);
 }

@@ -64,7 +64,7 @@ public class EvaluationSession extends BaseTimeEntity {
         this.status = "CLOSED";
     }
 
-    public void update(String name, String description, LocalDate startDate, LocalDate endDate, boolean allowResubmit) {
+    public void update(String name, String description, LocalDate startDate, LocalDate endDate, Long templateId, boolean allowResubmit) {
         if (!"PENDING".equals(this.status)) {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_STARTED, "시작된 세션은 수정할 수 없습니다.");
         }
@@ -72,6 +72,7 @@ public class EvaluationSession extends BaseTimeEntity {
         this.description = description;
         this.startDate = startDate;
         this.endDate = endDate;
+        this.templateId = templateId;
         this.allowResubmit = allowResubmit;
     }
 

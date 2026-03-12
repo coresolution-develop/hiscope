@@ -75,6 +75,61 @@
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-grid gap-2">
+                        <button th:if="${evalSession.pending}"
+                                type="button"
+                                class="btn btn-outline-dark btn-sm"
+                                id="toggleEditFormBtn">
+                            <i class="bi bi-pencil-square me-1"></i>세션 정보 수정
+                        </button>
+                        <form th:action="@{/admin/evaluation/sessions/{id}/clone(id=${evalSession.id})}"
+                              method="post"
+                              class="border rounded p-2">
+                            <div class="small fw-semibold mb-2">세션 복제 옵션</div>
+                            <div class="mb-2">
+                                <input type="text"
+                                       class="form-control form-control-sm"
+                                       name="cloneName"
+                                       placeholder="복제 세션명 (비우면 자동 생성)">
+                                <div class="form-text small">동일한 세션명이 이미 있으면 복제가 제한됩니다.</div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <input type="date"
+                                           class="form-control form-control-sm"
+                                           name="cloneStartDate"
+                                           th:value="${evalSession.startDate}">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date"
+                                           class="form-control form-control-sm"
+                                           name="cloneEndDate"
+                                           th:value="${evalSession.endDate}">
+                                </div>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="copyRelationships"
+                                       id="copyRelationships"
+                                       value="true"
+                                       checked>
+                                <label class="form-check-label small" for="copyRelationships">
+                                    활성 평가 관계 함께 복사
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-outline-dark btn-sm w-100"
+                                    onclick="return confirm('세션을 복제하시겠습니까?')">
+                                <i class="bi bi-copy me-1"></i>세션 복제
+                            </button>
+                        </form>
+                        <form th:if="${evalSession.pending}"
+                              th:action="@{/admin/evaluation/sessions/{id}/delete(id=${evalSession.id})}"
+                              method="post">
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                                    onclick="return confirm('세션을 삭제하면 관련 평가 관계/배정 데이터도 함께 제거됩니다. 계속하시겠습니까?')">
+                                <i class="bi bi-trash me-1"></i>세션 삭제
+                            </button>
+                        </form>
                         <a th:href="@{/admin/evaluation/results(sessionId=${evalSession.id})}"
                            class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-clipboard-data me-1"></i>결과 조회
@@ -100,6 +155,68 @@
                             </button>
                         </form>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8" th:if="${evalSession.pending}">
+            <div class="card mb-3" id="sessionEditCard"
+                 th:style="${openEditForm} ? '' : 'display:none;'">
+                <div class="card-header fw-semibold">세션 정보 수정</div>
+                <div class="card-body">
+                    <form th:action="@{/admin/evaluation/sessions/{id}/update(id=${evalSession.id})}"
+                          method="post"
+                          th:object="${updateRequest}">
+                        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger py-2">
+                            <span th:each="err : ${#fields.globalErrors()}" th:text="${err}"></span>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">세션명 *</label>
+                                <input type="text" th:field="*{name}"
+                                       th:classappend="${#fields.hasErrors('name')} ? ' is-invalid' : ''"
+                                       class="form-control">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">설명</label>
+                                <textarea th:field="*{description}" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">평가 시작일 *</label>
+                                <input type="date" th:field="*{startDate}"
+                                       th:classappend="${#fields.hasErrors('startDate')} ? ' is-invalid' : ''"
+                                       class="form-control">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">평가 종료일 *</label>
+                                <input type="date" th:field="*{endDate}"
+                                       th:classappend="${#fields.hasErrors('endDate')} ? ' is-invalid' : ''"
+                                       class="form-control">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}"></div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">평가 템플릿 *</label>
+                                <select th:field="*{templateId}"
+                                        th:classappend="${#fields.hasErrors('templateId')} ? ' is-invalid' : ''"
+                                        class="form-select">
+                                    <option value="">템플릿 선택</option>
+                                    <option th:each="t : ${templates}" th:value="${t.id}" th:text="${t.name}"></option>
+                                </select>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('templateId')}" th:errors="*{templateId}"></div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" th:field="*{allowResubmit}" class="form-check-input" id="allowResubmitUpdate">
+                                    <label class="form-check-label" for="allowResubmitUpdate">제출 후 수정 허용</label>
+                                </div>
+                            </div>
+                            <div class="col-12 text-end">
+                                <button type="submit" class="btn btn-primary btn-sm">저장</button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -132,41 +249,76 @@
             <div class="card">
                 <div class="card-header fw-semibold">배정 현황</div>
                 <div class="card-body border-bottom">
-                    <div class="row g-2 align-items-end">
+                    <form method="get"
+                          th:action="@{/admin/evaluation/sessions/{id}(id=${evalSession.id})}"
+                          class="row g-2 align-items-end">
                         <div class="col-md-5">
                             <label for="assignmentKeyword" class="form-label small text-muted mb-1">평가자/피평가자 검색</label>
-                            <input id="assignmentKeyword" type="text" class="form-control form-control-sm" placeholder="이름 키워드">
+                            <input id="assignmentKeyword"
+                                   name="assignmentKeyword"
+                                   type="text"
+                                   class="form-control form-control-sm"
+                                   placeholder="이름/사번 키워드"
+                                   th:value="${assignmentKeyword}">
                         </div>
                         <div class="col-md-4">
                             <label for="assignmentStatusFilter" class="form-label small text-muted mb-1">상태</label>
-                            <select id="assignmentStatusFilter" class="form-select form-select-sm">
+                            <select id="assignmentStatusFilter" name="assignmentStatus" class="form-select form-select-sm">
                                 <option value="">전체</option>
-                                <option value="PENDING">미제출</option>
-                                <option value="SUBMITTED">제출완료</option>
+                                <option value="PENDING" th:selected="${assignmentStatus == 'PENDING'}">미제출</option>
+                                <option value="SUBMITTED" th:selected="${assignmentStatus == 'SUBMITTED'}">제출완료</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1">정렬</label>
+                            <select name="assignmentSortBy" class="form-select form-select-sm">
+                                <option value="submittedAt" th:selected="${assignmentSortBy == 'submittedAt'}">제출일</option>
+                                <option value="evaluatorName" th:selected="${assignmentSortBy == 'evaluatorName'}">평가자</option>
+                                <option value="evaluateeName" th:selected="${assignmentSortBy == 'evaluateeName'}">피평가자</option>
+                                <option value="status" th:selected="${assignmentSortBy == 'status'}">상태</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small text-muted mb-1">방향</label>
+                            <select name="assignmentSortDir" class="form-select form-select-sm">
+                                <option value="desc" th:selected="${assignmentSortDir == 'desc'}">내림</option>
+                                <option value="asc" th:selected="${assignmentSortDir == 'asc'}">오름</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small text-muted mb-1">건수</label>
+                            <select name="assignmentSize" class="form-select form-select-sm">
+                                <option value="20" th:selected="${assignmentSize == 20}">20</option>
+                                <option value="50" th:selected="${assignmentSize == 50}">50</option>
+                                <option value="100" th:selected="${assignmentSize == 100}">100</option>
                             </select>
                         </div>
                         <div class="col-md-3 text-end">
-                            <div class="small text-muted">결과</div>
-                            <div class="fw-semibold" id="visibleAssignmentCount" th:text="${#lists.size(assignmentRows)}">0</div>
+                            <input type="hidden" name="assignmentPage" value="0">
+                            <button type="submit" class="btn btn-outline-primary btn-sm me-1">적용</button>
+                            <a th:href="@{/admin/evaluation/sessions/{id}(id=${evalSession.id})}"
+                               class="btn btn-outline-secondary btn-sm">초기화</a>
                         </div>
-                    </div>
+                    </form>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-sm table-hover mb-0">
                         <thead>
                         <tr>
                             <th>평가자</th>
+                            <th>사번</th>
                             <th>피평가자</th>
+                            <th>사번</th>
                             <th>상태</th>
                             <th>제출일</th>
                         </tr>
                         </thead>
                         <tbody id="assignmentTableBody">
-                        <tr th:each="a : ${assignmentRows}"
-                            class="assignment-row"
-                            th:attr="data-status=${a.status},data-keyword=${#strings.toLowerCase(a.evaluatorName + ' ' + a.evaluateeName)}">
+                        <tr th:each="a : ${assignmentRows}">
                             <td th:text="${a.evaluatorName}">평가자</td>
+                            <td th:text="${a.evaluatorEmployeeNumber != null ? a.evaluatorEmployeeNumber : '-'}"></td>
                             <td th:text="${a.evaluateeName}">피평가자</td>
+                            <td th:text="${a.evaluateeEmployeeNumber != null ? a.evaluateeEmployeeNumber : '-'}"></td>
                             <td>
                                 <span class="badge bg-secondary" th:if="${a.status == 'PENDING'}">대기</span>
                                 <span class="badge bg-success" th:if="${a.status != 'PENDING'}">제출완료</span>
@@ -174,13 +326,24 @@
                             <td class="small text-muted" th:text="${a.submittedAt != null ? #temporals.format(a.submittedAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(assignmentRows)}">
-                            <td colspan="4" class="text-center text-muted py-3">배정 없음</td>
-                        </tr>
-                        <tr id="noAssignmentResultRow" style="display:none;">
-                            <td colspan="4" class="text-center text-muted py-3">검색 조건에 맞는 배정이 없습니다.</td>
+                            <td colspan="6" class="text-center text-muted py-3">검색 조건에 맞는 배정이 없습니다.</td>
                         </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center" th:if="${assignmentRows != null}">
+                    <div class="small text-muted">
+                        총 <span th:text="${filteredAssignmentCount}">0</span>건 /
+                        <span th:text="${assignmentPage + 1}">1</span> / <span th:text="${assignmentTotalPages}">1</span> 페이지
+                    </div>
+                    <div class="d-flex gap-2" th:if="${assignmentTotalPages > 1}">
+                        <a class="btn btn-outline-secondary btn-sm"
+                           th:classappend="${assignmentPage == 0} ? ' disabled'"
+                           th:href="@{/admin/evaluation/sessions/{id}(id=${evalSession.id},assignmentKeyword=${assignmentKeyword},assignmentStatus=${assignmentStatus},assignmentSortBy=${assignmentSortBy},assignmentSortDir=${assignmentSortDir},assignmentSize=${assignmentSize},assignmentPage=${assignmentPage > 0 ? assignmentPage - 1 : 0})}">이전</a>
+                        <a class="btn btn-outline-secondary btn-sm"
+                           th:classappend="${assignmentPage + 1 >= assignmentTotalPages} ? ' disabled'"
+                           th:href="@{/admin/evaluation/sessions/{id}(id=${evalSession.id},assignmentKeyword=${assignmentKeyword},assignmentStatus=${assignmentStatus},assignmentSortBy=${assignmentSortBy},assignmentSortDir=${assignmentSortDir},assignmentSize=${assignmentSize},assignmentPage=${assignmentPage + 1 < assignmentTotalPages ? assignmentPage + 1 : assignmentPage})}">다음</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -189,42 +352,14 @@
 <th:block th:fragment="scripts">
     <script>
         (function () {
-            const rows = Array.from(document.querySelectorAll('.assignment-row'));
-            if (!rows.length) {
-                return;
-            }
-            const keywordEl = document.getElementById('assignmentKeyword');
-            const statusEl = document.getElementById('assignmentStatusFilter');
-            const countEl = document.getElementById('visibleAssignmentCount');
-            const noResultRow = document.getElementById('noAssignmentResultRow');
-
-            function applyFilters() {
-                const keyword = (keywordEl.value || '').trim().toLowerCase();
-                const status = statusEl.value || '';
-                let visible = 0;
-
-                rows.forEach((row) => {
-                    const rowStatus = row.dataset.status || '';
-                    const rowKeyword = row.dataset.keyword || '';
-                    const matched = (!keyword || rowKeyword.includes(keyword))
-                        && (!status || rowStatus === status);
-                    row.style.display = matched ? '' : 'none';
-                    if (matched) {
-                        visible += 1;
-                    }
+            const editCard = document.getElementById('sessionEditCard');
+            const toggleBtn = document.getElementById('toggleEditFormBtn');
+            if (toggleBtn && editCard) {
+                toggleBtn.addEventListener('click', function () {
+                    const hidden = editCard.style.display === 'none';
+                    editCard.style.display = hidden ? '' : 'none';
                 });
-
-                if (countEl) {
-                    countEl.textContent = String(visible);
-                }
-                if (noResultRow) {
-                    noResultRow.style.display = visible === 0 ? '' : 'none';
-                }
             }
-
-            keywordEl.addEventListener('input', applyFilters);
-            statusEl.addEventListener('change', applyFilters);
-            applyFilters();
         }());
     </script>
 </th:block>

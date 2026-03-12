@@ -9,6 +9,9 @@ import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
 import com.hiscope.evaluation.domain.employee.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -52,6 +55,26 @@ public class DepartmentService {
                 .map(d -> DepartmentResponse.from(d,
                         d.getParentId() != null ? nameMap.get(d.getParentId()) : null))
                 .toList();
+    }
+
+    public Page<DepartmentResponse> searchPage(Long orgId, String keyword, Boolean active, Pageable pageable) {
+        SecurityUtils.checkOrgAccess(orgId);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        Specification<Department> spec = Specification.where((root, query, cb) -> cb.equal(root.get("organizationId"), orgId));
+        if (active != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("active"), active));
+        }
+        if (StringUtils.hasText(normalizedKeyword)) {
+            String likeKeyword = "%" + normalizedKeyword.toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("name")), likeKeyword),
+                    cb.like(cb.lower(root.get("code")), likeKeyword)
+            ));
+        }
+        Map<Long, String> nameMap = departmentRepository.findByOrganizationIdOrderByNameAsc(orgId).stream()
+                .collect(Collectors.toMap(Department::getId, Department::getName));
+        return departmentRepository.findAll(spec, pageable)
+                .map(d -> DepartmentResponse.from(d, d.getParentId() != null ? nameMap.get(d.getParentId()) : null));
     }
 
     public List<DepartmentResponse> findActive(Long orgId) {
@@ -113,5 +136,12 @@ public class DepartmentService {
         // orElse(null) → orElseThrow() : 다른 getBy* 메서드와 일관성 유지 및 NPE 방지
         return departmentRepository.findByOrganizationIdAndCode(orgId, code)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DEPARTMENT_NOT_FOUND));
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return null;
+        }
+        return keyword.trim();
     }
 }

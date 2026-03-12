@@ -14,5 +14,7 @@ public interface UploadHistoryRepository extends JpaRepository<UploadHistory, Lo
 
     List<UploadHistory> findByOrganizationIdAndUploadTypeOrderByCreatedAtDesc(Long organizationId, String uploadType);
 
+    Optional<UploadHistory> findTopByOrganizationIdOrderByCreatedAtDesc(Long organizationId);
+
     Optional<UploadHistory> findByOrganizationIdAndId(Long organizationId, Long id);
 }

@@ -1,6 +1,7 @@
 package com.hiscope.evaluation.domain.evaluation.response.controller;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.evaluation.response.dto.EvaluationSubmitRequest;
@@ -91,7 +92,8 @@ public class EvaluationResponseController {
         request.setFinalSubmit(false);
         try {
             responseService.save(employeeId, orgId, assignmentId, request);
-            auditLogger.success("EVAL_RESPONSE_SAVE_DRAFT", "EVALUATION_ASSIGNMENT", String.valueOf(assignmentId), "임시저장");
+            auditLogger.success("EVAL_RESPONSE_SAVE_DRAFT", "EVALUATION_ASSIGNMENT", String.valueOf(assignmentId),
+                    AuditDetail.of("finalSubmit", false));
             ra.addFlashAttribute("successMessage", "임시저장되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_RESPONSE_SAVE_DRAFT", "EVALUATION_ASSIGNMENT", String.valueOf(assignmentId), e.getMessage());
@@ -110,7 +112,8 @@ public class EvaluationResponseController {
         request.setFinalSubmit(true);
         try {
             responseService.save(employeeId, orgId, assignmentId, request);
-            auditLogger.success("EVAL_RESPONSE_SUBMIT", "EVALUATION_ASSIGNMENT", String.valueOf(assignmentId), "최종 제출");
+            auditLogger.success("EVAL_RESPONSE_SUBMIT", "EVALUATION_ASSIGNMENT", String.valueOf(assignmentId),
+                    AuditDetail.of("finalSubmit", true));
             ra.addFlashAttribute("successMessage", "평가가 제출되었습니다.");
             return "redirect:/user/evaluations/" + assignmentId + "/complete";
         } catch (BusinessException e) {

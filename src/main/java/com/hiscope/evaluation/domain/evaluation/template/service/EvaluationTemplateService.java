@@ -10,6 +10,9 @@ import com.hiscope.evaluation.domain.evaluation.template.entity.EvaluationTempla
 import com.hiscope.evaluation.domain.evaluation.template.repository.EvaluationQuestionRepository;
 import com.hiscope.evaluation.domain.evaluation.template.repository.EvaluationTemplateRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -41,6 +44,24 @@ public class EvaluationTemplateService {
                             || (t.getDescription() != null && t.getDescription().toLowerCase().contains(normalized));
                 })
                 .toList();
+    }
+
+    public Page<EvaluationTemplate> searchPage(Long orgId, String keyword, Boolean active, Pageable pageable) {
+        SecurityUtils.checkOrgAccess(orgId);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        Specification<EvaluationTemplate> spec =
+                Specification.where((root, query, cb) -> cb.equal(root.get("organizationId"), orgId));
+        if (active != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("active"), active));
+        }
+        if (StringUtils.hasText(normalizedKeyword)) {
+            String likeKeyword = "%" + normalizedKeyword.toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("name")), likeKeyword),
+                    cb.like(cb.lower(cb.coalesce(root.get("description"), "")), likeKeyword)
+            ));
+        }
+        return templateRepository.findAll(spec, pageable);
     }
 
     public EvaluationTemplate findById(Long orgId, Long id) {
@@ -128,5 +149,12 @@ public class EvaluationTemplateService {
                 .sortOrder(request.getSortOrder())
                 .active(true)
                 .build();
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return null;
+        }
+        return keyword.trim();
     }
 }

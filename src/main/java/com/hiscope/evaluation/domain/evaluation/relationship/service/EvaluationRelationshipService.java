@@ -266,6 +266,12 @@ public class EvaluationRelationshipService {
         return relationshipRepository.save(rel);
     }
 
+    public EvaluationRelationship findById(Long orgId, Long relationshipId) {
+        SecurityUtils.checkOrgAccess(orgId);
+        return relationshipRepository.findByOrganizationIdAndId(orgId, relationshipId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RELATIONSHIP_NOT_FOUND));
+    }
+
     /**
      * 관계 비활성화/삭제
      * AUTO_GENERATED → is_active = false (이력 보존)

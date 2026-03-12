@@ -99,7 +99,7 @@
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>세션명</th><th>기간</th><th>상태</th><th>재제출</th><th>생성일</th><th width="200">관리</th></tr></thead>
+            <thead><tr><th>세션명</th><th>기간</th><th>상태</th><th>재제출</th><th>생성일</th><th width="300">관리</th></tr></thead>
             <tbody id="sessionTableBody">
             <tr th:each="s : ${sessions}">
                 <td>
@@ -119,6 +119,11 @@
                 <td class="small" th:text="${#temporals.format(s.createdAt, 'yyyy-MM-dd')}"></td>
                 <td>
                     <a th:href="@{/admin/evaluation/sessions/{id}(id=${s.id})}" class="btn btn-outline-secondary btn-sm me-1">상세</a>
+                    <form th:action="@{/admin/evaluation/sessions/{id}/clone(id=${s.id})}" method="post" class="d-inline">
+                        <input type="hidden" name="copyRelationships" value="true">
+                        <button type="submit" class="btn btn-outline-dark btn-sm me-1"
+                                onclick="return confirm('해당 세션을 복제하시겠습니까? 활성 평가 관계도 함께 복사됩니다.')">복제</button>
+                    </form>
                     <a th:href="@{/admin/evaluation/sessions/{id}/relationships(id=${s.id})}" class="btn btn-outline-primary btn-sm">
                         평가 관계
                     </a>

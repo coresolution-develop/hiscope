@@ -11,6 +11,7 @@ import com.hiscope.evaluation.domain.employee.entity.UserAccount;
 import com.hiscope.evaluation.domain.employee.repository.EmployeeRepository;
 import com.hiscope.evaluation.domain.employee.repository.UserAccountRepository;
 import com.hiscope.evaluation.domain.account.repository.AccountRepository;
+import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -23,6 +24,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.security.SecureRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +37,9 @@ public class EmployeeService {
     private final AccountRepository accountRepository;
     private final DepartmentRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationSettingService organizationSettingService;
+    private final SecureRandom secureRandom = new SecureRandom();
+    private static final String PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
 
     public List<EmployeeResponse> findAll(Long orgId) {
         SecurityUtils.checkOrgAccess(orgId);
@@ -106,6 +111,7 @@ public class EmployeeService {
             throw new BusinessException(ErrorCode.EMPLOYEE_NUMBER_DUPLICATE);
         }
         validateLoginIdUnique(request.getLoginId());
+        int minPasswordLength = organizationSettingService.resolvePasswordMinLength(orgId);
 
         Employee emp = Employee.builder()
                 .organizationId(orgId)
@@ -120,8 +126,9 @@ public class EmployeeService {
         emp = employeeRepository.save(emp);
 
         String initPassword = (request.getPassword() == null || request.getPassword().isBlank())
-                ? "password123"
+                ? generateInitialPassword(minPasswordLength)
                 : request.getPassword();
+        validatePasswordPolicy(initPassword, minPasswordLength);
         UserAccount ua = UserAccount.builder()
                 .employee(emp)
                 .organizationId(orgId)
@@ -137,6 +144,7 @@ public class EmployeeService {
     public EmployeeResponse update(Long orgId, Long id, EmployeeRequest request) {
         SecurityUtils.checkOrgAccess(orgId);
         Employee emp = getByOrgAndId(orgId, id);
+        int minPasswordLength = organizationSettingService.resolvePasswordMinLength(orgId);
         if (employeeRepository.existsByOrganizationIdAndEmployeeNumberAndIdNot(orgId, request.getEmployeeNumber(), id)) {
             throw new BusinessException(ErrorCode.EMPLOYEE_NUMBER_DUPLICATE);
         }
@@ -144,6 +152,7 @@ public class EmployeeService {
                 request.getJobTitle(), request.getEmail(), request.getStatus());
 
         if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            validatePasswordPolicy(request.getPassword(), minPasswordLength);
             userAccountRepository.findByEmployeeId(id)
                     .ifPresent(ua -> ua.updatePassword(passwordEncoder.encode(request.getPassword())));
         }
@@ -198,5 +207,25 @@ public class EmployeeService {
         }
         return userAccountRepository.findByEmployeeIdIn(employeeIds).stream()
                 .collect(Collectors.toMap(ua -> ua.getEmployee().getId(), UserAccount::getLoginId));
+    }
+
+    private void validatePasswordPolicy(String password, int minLength) {
+        if (password == null || password.length() < minLength) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "비밀번호는 최소 " + minLength + "자 이상이어야 합니다.");
+        }
+        if (password.length() > 50) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호는 50자 이하여야 합니다.");
+        }
+    }
+
+    private String generateInitialPassword(int minLength) {
+        int length = Math.max(minLength, 12);
+        StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            int index = secureRandom.nextInt(PASSWORD_CHARS.length());
+            builder.append(PASSWORD_CHARS.charAt(index));
+        }
+        return builder.toString();
     }
 }

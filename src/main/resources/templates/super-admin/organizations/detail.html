@@ -101,7 +101,9 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">비밀번호 *</label>
-                        <input type="password" th:field="*{password}" class="form-control" placeholder="비밀번호 (8자 이상)">
+                        <input type="password" th:field="*{password}" class="form-control"
+                               th:placeholder="|비밀번호 (${passwordMinLength}자 이상)|">
+                        <div class="form-text" th:text="|기관 비밀번호 정책: 최소 ${passwordMinLength}자|"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">이메일</label>

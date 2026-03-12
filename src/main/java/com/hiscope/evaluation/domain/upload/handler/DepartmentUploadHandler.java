@@ -3,9 +3,9 @@ package com.hiscope.evaluation.domain.upload.handler;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.util.ExcelUtils;
-import com.hiscope.evaluation.config.properties.UploadPolicyProperties;
 import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
+import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import com.hiscope.evaluation.domain.upload.dto.UploadError;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ import java.util.*;
 public class DepartmentUploadHandler {
 
     private final DepartmentRepository departmentRepository;
-    private final UploadPolicyProperties uploadPolicyProperties;
+    private final OrganizationSettingService organizationSettingService;
 
     @Transactional
     public UploadResult handle(Long orgId, MultipartFile file) {
@@ -54,7 +54,7 @@ public class DepartmentUploadHandler {
                 Row row = sheet.getRow(i);
                 if (ExcelUtils.isRowEmpty(row, 2)) continue;
                 totalRows++;
-                validateMaxRows(totalRows);
+                validateMaxRows(orgId, totalRows);
 
                 String code = ExcelUtils.getCellString(row, 0).toUpperCase();
                 String name = ExcelUtils.getCellString(row, 1);
@@ -112,11 +112,12 @@ public class DepartmentUploadHandler {
         return UploadResult.failed("DEPARTMENT", fileName, errors);
     }
 
-    private void validateMaxRows(int totalRows) {
-        if (totalRows > uploadPolicyProperties.getMaxRows()) {
+    private void validateMaxRows(Long orgId, int totalRows) {
+        int maxRows = organizationSettingService.resolveUploadMaxRows(orgId);
+        if (totalRows > maxRows) {
             throw new BusinessException(
                     ErrorCode.INVALID_INPUT,
-                    "업로드 가능한 최대 행 수(" + uploadPolicyProperties.getMaxRows() + "행)를 초과했습니다."
+                    "업로드 가능한 최대 행 수(" + maxRows + "행)를 초과했습니다."
             );
         }
     }

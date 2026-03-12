@@ -1,6 +1,7 @@
 package com.hiscope.evaluation.config;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -67,7 +68,7 @@ public class SecurityConfig {
                 .logoutSuccessHandler((request, response, authentication) -> {
                     auditLogger.success("AUTH_LOGOUT", "AUTH",
                             authentication != null ? authentication.getName() : "anonymous",
-                            "로그아웃 성공");
+                            AuditDetail.of("result", "success"));
                     response.sendRedirect("/login?logout=true");
                 })
                 .invalidateHttpSession(true)

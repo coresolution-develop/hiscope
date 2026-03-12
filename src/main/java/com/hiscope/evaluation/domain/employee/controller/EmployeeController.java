@@ -1,11 +1,13 @@
 package com.hiscope.evaluation.domain.employee.controller;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.department.service.DepartmentService;
 import com.hiscope.evaluation.domain.employee.dto.EmployeeRequest;
 import com.hiscope.evaluation.domain.employee.service.EmployeeService;
+import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +28,7 @@ public class EmployeeController {
 
     private final EmployeeService employeeService;
     private final DepartmentService departmentService;
+    private final OrganizationSettingService organizationSettingService;
     private final AuditLogger auditLogger;
 
     @GetMapping
@@ -61,6 +64,7 @@ public class EmployeeController {
         model.addAttribute("sortBy", normalizedSortBy);
         model.addAttribute("sortDir", normalizedSortDir);
         model.addAttribute("departments", departmentService.findActive(orgId));
+        model.addAttribute("passwordMinLength", organizationSettingService.resolvePasswordMinLength(orgId));
         model.addAttribute("request", new EmployeeRequest());
         return "admin/employees/list";
     }
@@ -102,16 +106,25 @@ public class EmployeeController {
             model.addAttribute("sortBy", normalizedSortBy);
             model.addAttribute("sortDir", normalizedSortDir);
             model.addAttribute("departments", departmentService.findActive(orgId));
+            model.addAttribute("passwordMinLength", organizationSettingService.resolvePasswordMinLength(orgId));
             String message = Optional.ofNullable(bindingResult.getFieldError())
                     .map(fe -> fe.getDefaultMessage())
                     .orElse("입력값을 확인해주세요.");
             model.addAttribute("errorMessage", message);
             return "admin/employees/list";
         }
-        var created = employeeService.create(orgId, request);
-        auditLogger.success("EMP_CREATE", "EMPLOYEE", String.valueOf(created.getId()),
-                "employeeNumber=" + created.getEmployeeNumber());
-        ra.addFlashAttribute("successMessage", "직원이 등록되었습니다.");
+        try {
+            var created = employeeService.create(orgId, request);
+            auditLogger.success("EMP_CREATE", "EMPLOYEE", String.valueOf(created.getId()),
+                    AuditDetail.of("employeeNumber", created.getEmployeeNumber(), "name", created.getName(), "status", created.getStatus()));
+            ra.addFlashAttribute("successMessage", "직원이 등록되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("EMP_CREATE", "EMPLOYEE", "-", e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            auditLogger.fail("EMP_CREATE", "EMPLOYEE", "-", e.getMessage());
+            ra.addFlashAttribute("errorMessage", "직원 등록 중 오류가 발생했습니다.");
+        }
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
     }
 
@@ -142,10 +155,18 @@ public class EmployeeController {
             return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
         }
         Long orgId = SecurityUtils.getCurrentOrgId();
-        var updated = employeeService.update(orgId, id, request);
-        auditLogger.success("EMP_UPDATE", "EMPLOYEE", String.valueOf(id),
-                "employeeNumber=" + updated.getEmployeeNumber() + ", status=" + updated.getStatus());
-        ra.addFlashAttribute("successMessage", "직원 정보가 수정되었습니다.");
+        try {
+            var updated = employeeService.update(orgId, id, request);
+            auditLogger.success("EMP_UPDATE", "EMPLOYEE", String.valueOf(id),
+                    AuditDetail.of("employeeNumber", updated.getEmployeeNumber(), "name", updated.getName(), "status", updated.getStatus()));
+            ra.addFlashAttribute("successMessage", "직원 정보가 수정되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("EMP_UPDATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            auditLogger.fail("EMP_UPDATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", "직원 수정 중 오류가 발생했습니다.");
+        }
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
     }
 
@@ -169,7 +190,7 @@ public class EmployeeController {
         try {
             Long orgId = SecurityUtils.getCurrentOrgId();
             employeeService.deactivate(orgId, id);
-            auditLogger.success("EMP_DEACTIVATE", "EMPLOYEE", String.valueOf(id), "status=INACTIVE");
+            auditLogger.success("EMP_DEACTIVATE", "EMPLOYEE", String.valueOf(id), AuditDetail.of("status", "INACTIVE"));
             ra.addFlashAttribute("successMessage", "직원이 비활성화되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EMP_DEACTIVATE", "EMPLOYEE", String.valueOf(id), e.getMessage());
@@ -201,7 +222,7 @@ public class EmployeeController {
         try {
             Long orgId = SecurityUtils.getCurrentOrgId();
             employeeService.activate(orgId, id);
-            auditLogger.success("EMP_ACTIVATE", "EMPLOYEE", String.valueOf(id), "status=ACTIVE");
+            auditLogger.success("EMP_ACTIVATE", "EMPLOYEE", String.valueOf(id), AuditDetail.of("status", "ACTIVE"));
             ra.addFlashAttribute("successMessage", "직원이 재활성화되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EMP_ACTIVATE", "EMPLOYEE", String.valueOf(id), e.getMessage());

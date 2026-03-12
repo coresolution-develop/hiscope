@@ -4,9 +4,14 @@ import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.evaluation.assignment.service.EvaluationAssignmentService;
+import com.hiscope.evaluation.domain.evaluation.relationship.repository.EvaluationRelationshipRepository;
+import com.hiscope.evaluation.domain.evaluation.response.repository.EvaluationResponseItemRepository;
+import com.hiscope.evaluation.domain.evaluation.response.repository.EvaluationResponseRepository;
 import com.hiscope.evaluation.domain.evaluation.session.dto.SessionCreateRequest;
 import com.hiscope.evaluation.domain.evaluation.session.entity.EvaluationSession;
 import com.hiscope.evaluation.domain.evaluation.session.repository.EvaluationSessionRepository;
+import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
+import com.hiscope.evaluation.domain.evaluation.assignment.repository.EvaluationAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +31,11 @@ public class EvaluationSessionService {
 
     private final EvaluationSessionRepository sessionRepository;
     private final EvaluationAssignmentService assignmentService;
+    private final EvaluationTemplateService templateService;
+    private final EvaluationRelationshipRepository relationshipRepository;
+    private final EvaluationAssignmentRepository assignmentRepository;
+    private final EvaluationResponseRepository responseRepository;
+    private final EvaluationResponseItemRepository responseItemRepository;
 
     public List<EvaluationSession> findAll(Long orgId) {
         SecurityUtils.checkOrgAccess(orgId);
@@ -108,6 +120,7 @@ public class EvaluationSessionService {
     @Transactional
     public EvaluationSession create(Long orgId, SessionCreateRequest request) {
         SecurityUtils.checkOrgAccess(orgId);
+        templateService.getByOrgAndId(orgId, request.getTemplateId());
         EvaluationSession session = EvaluationSession.builder()
                 .organizationId(orgId)
                 .name(request.getName())
@@ -146,9 +159,137 @@ public class EvaluationSessionService {
     @Transactional
     public void update(Long orgId, Long sessionId, SessionCreateRequest request) {
         SecurityUtils.checkOrgAccess(orgId);
+        templateService.getByOrgAndId(orgId, request.getTemplateId());
         EvaluationSession session = getByOrgAndId(orgId, sessionId);
         session.update(request.getName(), request.getDescription(),
-                request.getStartDate(), request.getEndDate(), request.isAllowResubmit());
+                request.getStartDate(), request.getEndDate(), request.getTemplateId(), request.isAllowResubmit());
+    }
+
+    @Transactional
+    public void delete(Long orgId, Long sessionId) {
+        SecurityUtils.checkOrgAccess(orgId);
+        EvaluationSession session = getByOrgAndId(orgId, sessionId);
+        if (!session.isPending()) {
+            throw new BusinessException(ErrorCode.SESSION_STATUS_INVALID, "대기 상태 세션만 삭제할 수 있습니다.");
+        }
+
+        List<Long> assignmentIds = assignmentRepository.findBySessionId(sessionId).stream()
+                .map(com.hiscope.evaluation.domain.evaluation.assignment.entity.EvaluationAssignment::getId)
+                .toList();
+        if (!assignmentIds.isEmpty()) {
+            List<Long> responseIds = responseRepository.findByAssignmentIdIn(assignmentIds).stream()
+                    .map(com.hiscope.evaluation.domain.evaluation.response.entity.EvaluationResponse::getId)
+                    .toList();
+            if (!responseIds.isEmpty()) {
+                responseItemRepository.deleteByResponseIdIn(responseIds);
+            }
+            responseRepository.deleteAllById(responseIds);
+            assignmentRepository.deleteBySessionId(sessionId);
+        }
+        relationshipRepository.deleteBySessionId(sessionId);
+        sessionRepository.delete(session);
+    }
+
+    @Transactional
+    public SessionCloneResult cloneSession(Long orgId,
+                                           Long sourceSessionId,
+                                           boolean copyRelationships,
+                                           String cloneName,
+                                           LocalDate cloneStartDate,
+                                           LocalDate cloneEndDate) {
+        SecurityUtils.checkOrgAccess(orgId);
+        EvaluationSession source = getByOrgAndId(orgId, sourceSessionId);
+        templateService.getByOrgAndId(orgId, source.getTemplateId());
+        String effectiveName = resolveCloneName(orgId, source.getName(), cloneName);
+        LocalDate effectiveStartDate = cloneStartDate != null ? cloneStartDate : source.getStartDate();
+        LocalDate effectiveEndDate = cloneEndDate != null ? cloneEndDate : source.getEndDate();
+        validateDateRange(effectiveStartDate, effectiveEndDate);
+
+        EvaluationSession cloned = sessionRepository.save(EvaluationSession.builder()
+                .organizationId(orgId)
+                .name(effectiveName)
+                .description(source.getDescription())
+                .startDate(effectiveStartDate)
+                .endDate(effectiveEndDate)
+                .templateId(source.getTemplateId())
+                .allowResubmit(source.isAllowResubmit())
+                .createdBy(SecurityUtils.getCurrentUser().getId())
+                .status("PENDING")
+                .build());
+
+        int copiedRelationshipCount = 0;
+        if (copyRelationships) {
+            var sourceRelationships = relationshipRepository.findBySessionIdAndActiveOrderByRelationTypeAsc(sourceSessionId, true);
+            if (!sourceRelationships.isEmpty()) {
+                var clonedRelationships = sourceRelationships.stream()
+                        .map(rel -> com.hiscope.evaluation.domain.evaluation.relationship.entity.EvaluationRelationship.builder()
+                                .sessionId(cloned.getId())
+                                .organizationId(orgId)
+                                .evaluatorId(rel.getEvaluatorId())
+                                .evaluateeId(rel.getEvaluateeId())
+                                .relationType(rel.getRelationType())
+                                .source(rel.getSource())
+                                .active(true)
+                                .build())
+                        .toList();
+                relationshipRepository.saveAll(clonedRelationships);
+                copiedRelationshipCount = clonedRelationships.size();
+            }
+        }
+        return new SessionCloneResult(cloned, copiedRelationshipCount);
+    }
+
+    private String resolveCloneName(Long orgId, String sourceName, String cloneName) {
+        if (!StringUtils.hasText(cloneName)) {
+            return resolveAutoCloneName(orgId, sourceName);
+        }
+        String normalized = cloneName.trim();
+        if (normalized.length() > 200) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "복제 세션명은 200자 이하여야 합니다.");
+        }
+        if (sessionRepository.existsByOrganizationIdAndName(orgId, normalized)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "동일한 세션명이 이미 존재합니다. 다른 복제 세션명을 입력해주세요.");
+        }
+        return normalized;
+    }
+
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "복제 세션의 시작일은 종료일보다 늦을 수 없습니다.");
+        }
+    }
+
+    private String buildCloneName(String sourceName) {
+        String suffix = " (복제 " + LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmm")) + ")";
+        String base = sourceName == null ? "세션" : sourceName.trim();
+        int maxBaseLen = Math.max(1, 200 - suffix.length());
+        if (base.length() > maxBaseLen) {
+            base = base.substring(0, maxBaseLen);
+        }
+        return base + suffix;
+    }
+
+    private String resolveAutoCloneName(Long orgId, String sourceName) {
+        String baseName = buildCloneName(sourceName);
+        if (!sessionRepository.existsByOrganizationIdAndName(orgId, baseName)) {
+            return baseName;
+        }
+        for (int sequence = 2; sequence <= 999; sequence++) {
+            String candidate = appendSequence(baseName, sequence);
+            if (!sessionRepository.existsByOrganizationIdAndName(orgId, candidate)) {
+                return candidate;
+            }
+        }
+        throw new BusinessException(ErrorCode.INVALID_INPUT, "복제 세션명을 자동 생성할 수 없습니다. 복제 세션명을 직접 입력해주세요.");
+    }
+
+    private String appendSequence(String baseName, int sequence) {
+        String suffix = " #" + sequence;
+        if (baseName.length() + suffix.length() <= 200) {
+            return baseName + suffix;
+        }
+        int cutLength = Math.max(1, 200 - suffix.length());
+        return baseName.substring(0, cutLength) + suffix;
     }
 
     public EvaluationSession getByOrgAndId(Long orgId, Long id) {
@@ -157,5 +298,8 @@ public class EvaluationSessionService {
     }
 
     public record SessionCountSummary(long total, long pending, long inProgress, long closed) {
+    }
+
+    public record SessionCloneResult(EvaluationSession session, int copiedRelationshipCount) {
     }
 }

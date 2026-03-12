@@ -3,7 +3,6 @@ package com.hiscope.evaluation.domain.upload.handler;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.util.ExcelUtils;
-import com.hiscope.evaluation.config.properties.UploadPolicyProperties;
 import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
 import com.hiscope.evaluation.domain.employee.entity.Employee;
@@ -11,6 +10,7 @@ import com.hiscope.evaluation.domain.employee.entity.UserAccount;
 import com.hiscope.evaluation.domain.employee.repository.EmployeeRepository;
 import com.hiscope.evaluation.domain.employee.repository.UserAccountRepository;
 import com.hiscope.evaluation.domain.account.repository.AccountRepository;
+import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import com.hiscope.evaluation.domain.upload.dto.UploadError;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +42,7 @@ public class EmployeeUploadHandler {
     private final AccountRepository accountRepository;
     private final DepartmentRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UploadPolicyProperties uploadPolicyProperties;
+    private final OrganizationSettingService organizationSettingService;
 
     private static final List<String> VALID_STATUSES = List.of("ACTIVE", "INACTIVE", "LEAVE");
 
@@ -79,7 +79,7 @@ public class EmployeeUploadHandler {
                 Row row = sheet.getRow(i);
                 if (ExcelUtils.isRowEmpty(row, 7)) continue;
                 totalRows++;
-                validateMaxRows(totalRows);
+                validateMaxRows(orgId, totalRows);
 
                 String empNum   = ExcelUtils.getCellString(row, 0);
                 String name     = ExcelUtils.getCellString(row, 1);
@@ -155,11 +155,12 @@ public class EmployeeUploadHandler {
         return UploadResult.failed("EMPLOYEE", fileName, errors);
     }
 
-    private void validateMaxRows(int totalRows) {
-        if (totalRows > uploadPolicyProperties.getMaxRows()) {
+    private void validateMaxRows(Long orgId, int totalRows) {
+        int maxRows = organizationSettingService.resolveUploadMaxRows(orgId);
+        if (totalRows > maxRows) {
             throw new BusinessException(
                     ErrorCode.INVALID_INPUT,
-                    "업로드 가능한 최대 행 수(" + uploadPolicyProperties.getMaxRows() + "행)를 초과했습니다."
+                    "업로드 가능한 최대 행 수(" + maxRows + "행)를 초과했습니다."
             );
         }
     }

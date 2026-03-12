@@ -1,12 +1,14 @@
 package com.hiscope.evaluation.domain.evaluation.session.controller;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.evaluation.session.dto.SessionCreateRequest;
 import com.hiscope.evaluation.domain.evaluation.session.service.EvaluationSessionService;
 import com.hiscope.evaluation.domain.evaluation.session.service.read.EvaluationSessionReadService;
 import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
+import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
 @Controller
@@ -29,6 +33,7 @@ public class EvaluationSessionController {
     private final EvaluationTemplateService templateService;
     private final EvaluationSessionReadService sessionReadService;
     private final AuditLogger auditLogger;
+    private final OrganizationSettingService organizationSettingService;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
@@ -53,7 +58,14 @@ public class EvaluationSessionController {
                 normalizedSortBy,
                 normalizedSortDir
         );
-        model.addAttribute("request", new SessionCreateRequest());
+        SessionCreateRequest createRequest = new SessionCreateRequest();
+        createRequest.setAllowResubmit(organizationSettingService.resolveSessionDefaultAllowResubmit(orgId));
+        LocalDate defaultStartDate = LocalDate.now();
+        createRequest.setStartDate(defaultStartDate);
+        createRequest.setEndDate(defaultStartDate.plusDays(
+                organizationSettingService.resolveSessionDefaultDurationDays(orgId)
+        ));
+        model.addAttribute("request", createRequest);
         return "admin/evaluation/sessions/list";
     }
 
@@ -94,7 +106,14 @@ public class EvaluationSessionController {
         try {
             var created = sessionService.create(orgId, request);
             auditLogger.success("EVAL_SESSION_CREATE", "EVALUATION_SESSION", String.valueOf(created.getId()),
-                    "name=" + created.getName());
+                    AuditDetail.of(
+                            "name", created.getName(),
+                            "status", created.getStatus(),
+                            "startDate", created.getStartDate(),
+                            "endDate", created.getEndDate(),
+                            "templateId", created.getTemplateId(),
+                            "allowResubmit", created.isAllowResubmit()
+                    ));
             ra.addFlashAttribute("successMessage", "평가 세션이 생성되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_SESSION_CREATE", "EVALUATION_SESSION", "-", e.getMessage());
@@ -112,14 +131,168 @@ public class EvaluationSessionController {
     }
 
     @GetMapping("/{id}")
-    public String detail(@PathVariable Long id, Model model) {
+    public String detail(@PathVariable Long id,
+                         @RequestParam(required = false) String assignmentKeyword,
+                         @RequestParam(required = false) String assignmentStatus,
+                         @RequestParam(required = false) String assignmentSortBy,
+                         @RequestParam(required = false) String assignmentSortDir,
+                         @RequestParam(defaultValue = "0") int assignmentPage,
+                         @RequestParam(defaultValue = "20") int assignmentSize,
+                         Model model) {
+        return detailInternal(
+                id,
+                model,
+                null,
+                false,
+                normalizeAssignmentKeyword(assignmentKeyword),
+                normalizeAssignmentStatus(assignmentStatus),
+                normalizeAssignmentSortBy(assignmentSortBy),
+                normalizeAssignmentSortDir(assignmentSortDir),
+                Math.max(assignmentPage, 0),
+                normalizeAssignmentSize(assignmentSize)
+        );
+    }
+
+    @PostMapping("/{id}/update")
+    public String update(@PathVariable Long id,
+                         @Valid @ModelAttribute("updateRequest") SessionCreateRequest request,
+                         BindingResult br,
+                         Model model,
+                         RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        if (br.hasErrors()) {
+            return detailInternal(id, model, request, true, null, null, null, null, 0, 20);
+        }
+        try {
+            var before = sessionService.findById(orgId, id);
+            sessionService.update(orgId, id, request);
+            auditLogger.success("EVAL_SESSION_UPDATE", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of(
+                            "nameFrom", before.getName(),
+                            "nameTo", request.getName(),
+                            "startDateFrom", before.getStartDate(),
+                            "startDateTo", request.getStartDate(),
+                            "endDateFrom", before.getEndDate(),
+                            "endDateTo", request.getEndDate(),
+                            "allowResubmitFrom", before.isAllowResubmit(),
+                            "allowResubmitTo", request.isAllowResubmit(),
+                            "templateIdFrom", before.getTemplateId(),
+                            "templateIdTo", request.getTemplateId()
+                    ));
+            ra.addFlashAttribute("successMessage", "평가 세션이 수정되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("EVAL_SESSION_UPDATE", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/sessions/" + id;
+    }
+
+    @PostMapping("/{id}/delete")
+    public String delete(@PathVariable Long id, RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            var before = sessionService.findById(orgId, id);
+            sessionService.delete(orgId, id);
+            auditLogger.success("EVAL_SESSION_DELETE", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("name", before.getName(), "status", before.getStatus()));
+            ra.addFlashAttribute("successMessage", "평가 세션이 삭제되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("EVAL_SESSION_DELETE", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/sessions";
+    }
+
+    @PostMapping("/{id}/clone")
+    public String cloneSession(@PathVariable Long id,
+                               @RequestParam(required = false) String cloneName,
+                               @RequestParam(required = false) String cloneStartDate,
+                               @RequestParam(required = false) String cloneEndDate,
+                               @RequestParam(required = false) Boolean copyRelationships,
+                               RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            LocalDate parsedCloneStartDate = parseOptionalDate(cloneStartDate, "복제 시작일");
+            LocalDate parsedCloneEndDate = parseOptionalDate(cloneEndDate, "복제 종료일");
+            String normalizedCloneName = normalizeKeyword(cloneName);
+            boolean effectiveCopyRelationships = Boolean.TRUE.equals(copyRelationships);
+            var cloneResult = sessionService.cloneSession(
+                    orgId,
+                    id,
+                    effectiveCopyRelationships,
+                    normalizedCloneName,
+                    parsedCloneStartDate,
+                    parsedCloneEndDate
+            );
+            auditLogger.success("EVAL_SESSION_CLONE", "EVALUATION_SESSION", String.valueOf(cloneResult.session().getId()),
+                    AuditDetail.of(
+                            "sourceSessionId", id,
+                            "cloneName", cloneResult.session().getName(),
+                            "cloneStartDate", cloneResult.session().getStartDate(),
+                            "cloneEndDate", cloneResult.session().getEndDate(),
+                            "copyRelationships", effectiveCopyRelationships,
+                            "copiedRelationshipCount", cloneResult.copiedRelationshipCount()
+                    ));
+            ra.addFlashAttribute("successMessage", "평가 세션이 복제되었습니다.");
+            return "redirect:/admin/evaluation/sessions/" + cloneResult.session().getId();
+        } catch (BusinessException e) {
+            auditLogger.fail("EVAL_SESSION_CLONE", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/admin/evaluation/sessions/" + id;
+        }
+    }
+
+    private String detailInternal(Long id,
+                                  Model model,
+                                  SessionCreateRequest request,
+                                  boolean openEditForm,
+                                  String assignmentKeyword,
+                                  String assignmentStatus,
+                                  String assignmentSortBy,
+                                  String assignmentSortDir,
+                                  int assignmentPage,
+                                  int assignmentSize) {
         Long orgId = SecurityUtils.getCurrentOrgId();
         var session = sessionService.findById(orgId, id);
         model.addAttribute("evalSession", session);
+        model.addAttribute("templates", templateService.findAll(orgId));
+        if (request != null) {
+            model.addAttribute("updateRequest", request);
+        } else if (!model.containsAttribute("updateRequest")) {
+            SessionCreateRequest updateRequest = new SessionCreateRequest();
+            updateRequest.setName(session.getName());
+            updateRequest.setDescription(session.getDescription());
+            updateRequest.setStartDate(session.getStartDate());
+            updateRequest.setEndDate(session.getEndDate());
+            updateRequest.setTemplateId(session.getTemplateId());
+            updateRequest.setAllowResubmit(session.isAllowResubmit());
+            model.addAttribute("updateRequest", updateRequest);
+        }
+        model.addAttribute("openEditForm", openEditForm);
+        model.addAttribute("assignmentKeyword", assignmentKeyword);
+        model.addAttribute("assignmentStatus", assignmentStatus);
+        model.addAttribute("assignmentSortBy", assignmentSortBy);
+        model.addAttribute("assignmentSortDir", assignmentSortDir);
+        model.addAttribute("assignmentPage", assignmentPage);
+        model.addAttribute("assignmentSize", assignmentSize);
+
         // 세션 진행 중이면 배정 현황 포함
         if (session.isInProgress() || session.isClosed()) {
-            var detailView = sessionReadService.buildSessionDetail(orgId, id);
+            var detailView = sessionReadService.buildSessionDetail(
+                    orgId,
+                    id,
+                    assignmentKeyword,
+                    assignmentStatus,
+                    assignmentSortBy,
+                    assignmentSortDir,
+                    assignmentPage,
+                    assignmentSize
+            );
             model.addAttribute("assignmentRows", detailView.assignmentRows());
+            model.addAttribute("filteredAssignmentCount", detailView.filteredAssignmentCount());
+            model.addAttribute("assignmentPage", detailView.assignmentPage());
+            model.addAttribute("assignmentSize", detailView.assignmentSize());
+            model.addAttribute("assignmentTotalPages", detailView.assignmentTotalPages());
             model.addAttribute("totalAssignmentCount", detailView.totalAssignmentCount());
             model.addAttribute("submittedAssignmentCount", detailView.submittedAssignmentCount());
             model.addAttribute("pendingAssignmentCount", detailView.pendingAssignmentCount());
@@ -134,7 +307,8 @@ public class EvaluationSessionController {
         Long orgId = SecurityUtils.getCurrentOrgId();
         try {
             sessionService.start(orgId, id);
-            auditLogger.success("EVAL_SESSION_START", "EVALUATION_SESSION", String.valueOf(id), "평가 시작");
+            auditLogger.success("EVAL_SESSION_START", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("statusFrom", "PENDING", "statusTo", "IN_PROGRESS"));
             ra.addFlashAttribute("successMessage", "평가가 시작되었습니다. 배정이 확정되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_SESSION_START", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
@@ -148,7 +322,8 @@ public class EvaluationSessionController {
         Long orgId = SecurityUtils.getCurrentOrgId();
         try {
             sessionService.close(orgId, id);
-            auditLogger.success("EVAL_SESSION_CLOSE", "EVALUATION_SESSION", String.valueOf(id), "평가 종료");
+            auditLogger.success("EVAL_SESSION_CLOSE", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("statusFrom", "IN_PROGRESS", "statusTo", "CLOSED"));
             ra.addFlashAttribute("successMessage", "평가 세션이 종료되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_SESSION_CLOSE", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
@@ -237,6 +412,18 @@ public class EvaluationSessionController {
         return keyword.trim();
     }
 
+    private LocalDate parseOptionalDate(String rawDate, String fieldName) {
+        if (rawDate == null || rawDate.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(rawDate.trim());
+        } catch (DateTimeParseException ex) {
+            throw new BusinessException(com.hiscope.evaluation.common.exception.ErrorCode.INVALID_INPUT,
+                    fieldName + " 형식이 올바르지 않습니다. (yyyy-MM-dd)");
+        }
+    }
+
     private String normalizeSortBy(String sortBy) {
         if ("name".equals(sortBy) || "status".equals(sortBy) || "startDate".equals(sortBy) || "endDate".equals(sortBy)) {
             return sortBy;
@@ -249,6 +436,39 @@ public class EvaluationSessionController {
             return "asc";
         }
         return "desc";
+    }
+
+    private String normalizeAssignmentKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return keyword.trim();
+    }
+
+    private String normalizeAssignmentStatus(String status) {
+        if ("PENDING".equals(status) || "SUBMITTED".equals(status)) {
+            return status;
+        }
+        return null;
+    }
+
+    private String normalizeAssignmentSortBy(String sortBy) {
+        if ("evaluatorName".equals(sortBy) || "evaluateeName".equals(sortBy)
+                || "status".equals(sortBy) || "submittedAt".equals(sortBy)) {
+            return sortBy;
+        }
+        return "submittedAt";
+    }
+
+    private String normalizeAssignmentSortDir(String sortDir) {
+        if ("asc".equalsIgnoreCase(sortDir)) {
+            return "asc";
+        }
+        return "desc";
+    }
+
+    private int normalizeAssignmentSize(int size) {
+        return Math.max(1, Math.min(size, 100));
     }
 
     private Sort buildSort(String sortBy, String sortDir) {

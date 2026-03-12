@@ -17,6 +17,7 @@ public interface EvaluationSessionRepository extends JpaRepository<EvaluationSes
     long countByOrganizationIdAndStatus(Long organizationId, String status);
 
     Optional<EvaluationSession> findByOrganizationIdAndId(Long organizationId, Long id);
+    boolean existsByOrganizationIdAndName(Long organizationId, String name);
 
     List<EvaluationSession> findByOrganizationIdAndStatusOrderByCreatedAtDesc(Long organizationId, String status);
 }

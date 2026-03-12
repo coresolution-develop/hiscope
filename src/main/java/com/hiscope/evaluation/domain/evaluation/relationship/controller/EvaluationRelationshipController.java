@@ -1,6 +1,7 @@
 package com.hiscope.evaluation.domain.evaluation.relationship.controller;
 
 import com.hiscope.evaluation.common.audit.AuditLogger;
+import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.employee.service.EmployeeService;
@@ -93,7 +94,7 @@ public class EvaluationRelationshipController {
         try {
             int count = relationshipService.autoGenerate(orgId, sessionId);
             auditLogger.success("EVAL_RELATION_AUTO_GENERATE", "EVALUATION_SESSION", String.valueOf(sessionId),
-                    "generated=" + count);
+                    AuditDetail.of("sessionId", sessionId, "generatedCount", count));
             ra.addFlashAttribute("successMessage", count + "개의 평가 관계가 자동 생성되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_RELATION_AUTO_GENERATE", "EVALUATION_SESSION", String.valueOf(sessionId), e.getMessage());
@@ -158,7 +159,12 @@ public class EvaluationRelationshipController {
         try {
             var rel = relationshipService.addManual(orgId, sessionId, request);
             auditLogger.success("EVAL_RELATION_ADD_MANUAL", "EVALUATION_RELATIONSHIP", String.valueOf(rel.getId()),
-                    "sessionId=" + sessionId);
+                    AuditDetail.of(
+                            "sessionId", sessionId,
+                            "evaluatorId", request.getEvaluatorId(),
+                            "evaluateeId", request.getEvaluateeId(),
+                            "relationType", "MANUAL"
+                    ));
             ra.addFlashAttribute("successMessage", "평가 관계가 추가되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_RELATION_ADD_MANUAL", "EVALUATION_SESSION", String.valueOf(sessionId), e.getMessage());
@@ -199,9 +205,15 @@ public class EvaluationRelationshipController {
         String normalizedSortBy = normalizeSortBy(sortBy);
         String normalizedSortDir = normalizeSortDir(sortDir);
         try {
+            var existing = relationshipService.findById(orgId, id);
             relationshipService.remove(orgId, sessionId, id);
             auditLogger.success("EVAL_RELATION_DELETE", "EVALUATION_RELATIONSHIP", String.valueOf(id),
-                    "sessionId=" + sessionId);
+                    AuditDetail.of(
+                            "sessionId", sessionId,
+                            "evaluatorId", existing.getEvaluatorId(),
+                            "evaluateeId", existing.getEvaluateeId(),
+                            "relationType", existing.getRelationType()
+                    ));
             ra.addFlashAttribute("successMessage", "평가 관계가 삭제되었습니다.");
         } catch (BusinessException e) {
             auditLogger.fail("EVAL_RELATION_DELETE", "EVALUATION_RELATIONSHIP", String.valueOf(id), e.getMessage());

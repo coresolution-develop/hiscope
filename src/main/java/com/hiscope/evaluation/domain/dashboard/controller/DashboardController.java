@@ -2,7 +2,6 @@ package com.hiscope.evaluation.domain.dashboard.controller;
 
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.dashboard.service.DashboardService;
-import com.hiscope.evaluation.domain.organization.service.OrganizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -13,18 +12,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class DashboardController {
 
     private final DashboardService dashboardService;
-    private final OrganizationService organizationService;
 
     @GetMapping("/super-admin/dashboard")
     public String superAdminDashboard(Model model) {
-        var organizations = organizationService.findAll();
-        long activeCount = organizations.stream()
-                .filter(org -> "ACTIVE".equals(org.getStatus()))
-                .count();
-
-        model.addAttribute("organizations", organizations);
-        model.addAttribute("activeCount", activeCount);
-        model.addAttribute("inactiveCount", organizations.size() - activeCount);
+        model.addAttribute("dashboard", dashboardService.getSuperAdminDashboard());
         return "super-admin/dashboard";
     }
 

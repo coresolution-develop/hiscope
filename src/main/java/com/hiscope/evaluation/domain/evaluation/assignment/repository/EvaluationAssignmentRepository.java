@@ -29,5 +29,28 @@ public interface EvaluationAssignmentRepository extends JpaRepository<Evaluation
     @Query("SELECT COUNT(a) FROM EvaluationAssignment a WHERE a.sessionId = :sessionId")
     long countBySession(@Param("sessionId") Long sessionId);
 
+    @Query("""
+            SELECT COUNT(a)
+            FROM EvaluationAssignment a
+            JOIN EvaluationSession s ON s.id = a.sessionId
+            WHERE a.organizationId = :orgId
+              AND s.status = :sessionStatus
+            """)
+    long countByOrganizationIdAndSessionStatus(@Param("orgId") Long orgId,
+                                               @Param("sessionStatus") String sessionStatus);
+
+    @Query("""
+            SELECT COUNT(a)
+            FROM EvaluationAssignment a
+            JOIN EvaluationSession s ON s.id = a.sessionId
+            WHERE a.organizationId = :orgId
+              AND a.status = 'SUBMITTED'
+              AND s.status = :sessionStatus
+            """)
+    long countSubmittedByOrganizationIdAndSessionStatus(@Param("orgId") Long orgId,
+                                                        @Param("sessionStatus") String sessionStatus);
+
     boolean existsBySessionIdAndEvaluatorIdAndEvaluateeId(Long sessionId, Long evaluatorId, Long evaluateeId);
+
+    void deleteBySessionId(Long sessionId);
 }

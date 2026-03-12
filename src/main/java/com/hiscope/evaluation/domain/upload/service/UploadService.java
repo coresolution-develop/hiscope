@@ -3,6 +3,7 @@ package com.hiscope.evaluation.domain.upload.service;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.security.SecurityUtils;
+import com.hiscope.evaluation.common.util.CsvUtils;
 import com.hiscope.evaluation.domain.upload.dto.UploadError;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
 import com.hiscope.evaluation.domain.upload.entity.UploadHistory;
@@ -16,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -52,8 +54,11 @@ public class UploadService {
                                                  String status,
                                                  LocalDate dateFrom,
                                                  LocalDate dateTo,
-                                                 String keyword) {
+                                                 String keyword,
+                                                 String sortBy,
+                                                 String sortDir) {
         SecurityUtils.checkOrgAccess(orgId);
+        Comparator<UploadHistory> comparator = buildComparator(sortBy, sortDir);
         return uploadHistoryService.findRecentByOrg(orgId, limit).stream()
                 .filter(h -> !StringUtils.hasText(uploadType) || uploadType.equals(h.getUploadType()))
                 .filter(h -> !StringUtils.hasText(status) || status.equals(h.getStatus()))
@@ -65,6 +70,7 @@ public class UploadService {
                     }
                     return h.getFileName().toLowerCase().contains(keyword.trim().toLowerCase());
                 })
+                .sorted(comparator)
                 .toList();
     }
 
@@ -77,9 +83,9 @@ public class UploadService {
         for (UploadError error : errors) {
             csv.append(error.getRowNumber())
                     .append(',')
-                    .append(escapeCsv(error.getColumn()))
+                    .append(CsvUtils.escape(error.getColumn()))
                     .append(',')
-                    .append(escapeCsv(error.getMessage()))
+                    .append(CsvUtils.escape(error.getMessage()))
                     .append('\n');
         }
         String filename = "upload_errors_" + history.getId() + ".csv";
@@ -161,11 +167,21 @@ public class UploadService {
         return file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown.xlsx";
     }
 
-    private String escapeCsv(String value) {
-        if (value == null) {
-            return "\"\"";
+    private Comparator<UploadHistory> buildComparator(String sortBy, String sortDir) {
+        Comparator<UploadHistory> comparator = switch (sortBy) {
+            case "uploadType" -> Comparator.comparing(UploadHistory::getUploadType, String.CASE_INSENSITIVE_ORDER);
+            case "status" -> Comparator.comparing(UploadHistory::getStatus, String.CASE_INSENSITIVE_ORDER);
+            case "fileName" -> Comparator.comparing(UploadHistory::getFileName, String.CASE_INSENSITIVE_ORDER);
+            case "successRows" -> Comparator.comparingInt(UploadHistory::getSuccessRows);
+            case "failRows" -> Comparator.comparingInt(UploadHistory::getFailRows);
+            case "totalRows" -> Comparator.comparingInt(UploadHistory::getTotalRows);
+            case "createdAt" -> Comparator.comparing(UploadHistory::getCreatedAt);
+            default -> Comparator.comparing(UploadHistory::getCreatedAt);
+        };
+        if (!"asc".equalsIgnoreCase(sortDir)) {
+            comparator = comparator.reversed();
         }
-        return "\"" + value.replace("\"", "\"\"") + "\"";
+        return comparator;
     }
 
     public record UploadFailureCsv(String filename, String content, int errorCount) {

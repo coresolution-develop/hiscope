@@ -210,6 +210,191 @@ class EvaluationWorkflowScenarioIntegrationTest {
     }
 
     @Test
+    void 평가세션_수정_삭제_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+        EvaluationTemplate template1 = createTemplate(1L, "세션수정템플릿1-" + suffix);
+        EvaluationTemplate template2 = createTemplate(1L, "세션수정템플릿2-" + suffix);
+        EvaluationSession session = createSession(1L, template1.getId(), "수정전세션-" + suffix, "PENDING", false);
+
+        mockMvc.perform(post("/admin/evaluation/sessions/{id}/update", session.getId())
+                        .session(adminSession)
+                        .with(csrf())
+                        .param("name", "수정후세션-" + suffix)
+                        .param("description", "수정된 설명")
+                        .param("startDate", "2026-05-01")
+                        .param("endDate", "2026-05-31")
+                        .param("templateId", String.valueOf(template2.getId()))
+                        .param("allowResubmit", "true"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/evaluation/sessions/" + session.getId()));
+
+        EvaluationSession updated = sessionRepository.findById(session.getId()).orElseThrow();
+        assertThat(updated.getName()).isEqualTo("수정후세션-" + suffix);
+        assertThat(updated.getDescription()).isEqualTo("수정된 설명");
+        assertThat(updated.getTemplateId()).isEqualTo(template2.getId());
+        assertThat(updated.isAllowResubmit()).isTrue();
+
+        Long evaluatorId = findEmployeeIdByNumber(1L, "E001");
+        Long evaluateeId = findEmployeeIdByNumber(1L, "E002");
+        EvaluationRelationship relationship = relationshipRepository.save(EvaluationRelationship.builder()
+                .sessionId(session.getId())
+                .organizationId(1L)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .relationType("MANUAL")
+                .source("ADMIN_ADDED")
+                .active(true)
+                .build());
+
+        EvaluationQuestion question = questionRepository.save(EvaluationQuestion.builder()
+                .templateId(template2.getId())
+                .organizationId(1L)
+                .category("역량")
+                .content("삭제검증문항-" + suffix)
+                .questionType("SCALE")
+                .maxScore(5)
+                .sortOrder(1)
+                .active(true)
+                .build());
+
+        EvaluationAssignment assignment = assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(session.getId())
+                .organizationId(1L)
+                .relationshipId(relationship.getId())
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+        EvaluationResponse response = responseRepository.save(EvaluationResponse.builder()
+                .assignmentId(assignment.getId())
+                .organizationId(1L)
+                .finalSubmit(false)
+                .build());
+        responseItemRepository.save(EvaluationResponseItem.builder()
+                .responseId(response.getId())
+                .questionId(question.getId())
+                .scoreValue(3)
+                .textValue("임시")
+                .build());
+
+        mockMvc.perform(post("/admin/evaluation/sessions/{id}/delete", session.getId())
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/evaluation/sessions"));
+
+        assertThat(sessionRepository.findById(session.getId())).isEmpty();
+        assertThat(relationshipRepository.findById(relationship.getId())).isEmpty();
+        assertThat(assignmentRepository.findById(assignment.getId())).isEmpty();
+        assertThat(responseRepository.findById(response.getId())).isEmpty();
+        assertThat(responseItemRepository.findByResponseId(response.getId())).isEmpty();
+    }
+
+    @Test
+    void 평가세션_복제_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+        EvaluationTemplate template = createTemplate(1L, "복제템플릿-" + suffix);
+        EvaluationSession source = createSession(1L, template.getId(), "복제원본세션-" + suffix, "CLOSED", true);
+
+        Long evaluatorId = findEmployeeIdByNumber(1L, "E001");
+        Long evaluateeId = findEmployeeIdByNumber(1L, "E002");
+        relationshipRepository.save(EvaluationRelationship.builder()
+                .sessionId(source.getId())
+                .organizationId(1L)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .relationType("MANUAL")
+                .source("ADMIN_ADDED")
+                .active(true)
+                .build());
+
+        mockMvc.perform(post("/admin/evaluation/sessions/{id}/clone", source.getId())
+                        .session(adminSession)
+                        .with(csrf())
+                        .param("copyRelationships", "true"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/admin/evaluation/sessions/*"));
+
+        EvaluationSession cloned = sessionRepository.findByOrganizationIdOrderByCreatedAtDesc(1L).stream()
+                .filter(s -> s.getName() != null && s.getName().contains("복제원본세션-" + suffix))
+                .filter(s -> !s.getId().equals(source.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(cloned.getStatus()).isEqualTo("PENDING");
+        assertThat(cloned.getTemplateId()).isEqualTo(source.getTemplateId());
+        assertThat(cloned.isAllowResubmit()).isEqualTo(source.isAllowResubmit());
+
+        boolean copiedRelationshipExists = relationshipRepository
+                .findBySessionIdOrderByRelationTypeAscEvaluatorIdAsc(cloned.getId()).stream()
+                .anyMatch(r -> r.getEvaluatorId().equals(evaluatorId)
+                        && r.getEvaluateeId().equals(evaluateeId)
+                        && "MANUAL".equals(r.getRelationType())
+                        && r.isActive());
+        assertThat(copiedRelationshipExists).isTrue();
+    }
+
+    @Test
+    void 평가세션_복제_옵션지정_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+        EvaluationTemplate template = createTemplate(1L, "복제옵션템플릿-" + suffix);
+        EvaluationSession source = createSession(1L, template.getId(), "복제옵션원본-" + suffix, "PENDING", false);
+
+        mockMvc.perform(post("/admin/evaluation/sessions/{id}/clone", source.getId())
+                        .session(adminSession)
+                        .with(csrf())
+                        .param("cloneName", "복제옵션대상-" + suffix)
+                        .param("cloneStartDate", LocalDate.now().plusDays(10).toString())
+                        .param("cloneEndDate", LocalDate.now().plusDays(20).toString())
+                        .param("copyRelationships", "false"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/admin/evaluation/sessions/*"));
+
+        EvaluationSession cloned = sessionRepository.findByOrganizationIdOrderByCreatedAtDesc(1L).stream()
+                .filter(s -> ("복제옵션대상-" + suffix).equals(s.getName()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(cloned.getStatus()).isEqualTo("PENDING");
+        assertThat(cloned.getTemplateId()).isEqualTo(source.getTemplateId());
+        assertThat(cloned.isAllowResubmit()).isFalse();
+        assertThat(cloned.getStartDate()).isEqualTo(LocalDate.now().plusDays(10));
+        assertThat(cloned.getEndDate()).isEqualTo(LocalDate.now().plusDays(20));
+        assertThat(relationshipRepository.findBySessionIdOrderByRelationTypeAscEvaluatorIdAsc(cloned.getId())).isEmpty();
+    }
+
+    @Test
+    void 평가세션_복제_명시이름_중복방지_테스트() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+        EvaluationTemplate template = createTemplate(1L, "복제중복템플릿-" + suffix);
+        EvaluationSession source = createSession(1L, template.getId(), "복제중복원본-" + suffix, "PENDING", false);
+        String duplicateName = "복제중복대상-" + suffix;
+        createSession(1L, template.getId(), duplicateName, "PENDING", false);
+
+        long beforeCount = sessionRepository.countByOrganizationId(1L);
+
+        mockMvc.perform(post("/admin/evaluation/sessions/{id}/clone", source.getId())
+                        .session(adminSession)
+                        .with(csrf())
+                        .param("cloneName", duplicateName)
+                        .param("copyRelationships", "false"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/evaluation/sessions/" + source.getId()))
+                .andExpect(flash().attributeExists("errorMessage"));
+
+        long afterCount = sessionRepository.countByOrganizationId(1L);
+        assertThat(afterCount).isEqualTo(beforeCount);
+        long duplicateCount = sessionRepository.findByOrganizationIdOrderByCreatedAtDesc(1L).stream()
+                .filter(s -> duplicateName.equals(s.getName()))
+                .count();
+        assertThat(duplicateCount).isEqualTo(1);
+    }
+
+    @Test
     void 평가관계_추가_삭제_테스트() throws Exception {
         MockHttpSession adminSession = loginAs("admin", "password123");
         String suffix = uniqueSuffix();
@@ -320,6 +505,174 @@ class EvaluationWorkflowScenarioIntegrationTest {
         assertThat(html).contains("평가 결과 조회");
         assertThat(html).contains("이지영");
         assertThat(html).contains("4.0");
+    }
+
+    @Test
+    void 기관관리자_미제출자_CSV_다운로드_테스트() throws Exception {
+        EvaluationFixture fixture = createEvaluationFixture(false);
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        EvaluationAssignment assignment = assignmentRepository.findById(fixture.assignmentId()).orElseThrow();
+
+        var response = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/admin/evaluation/results/pending.csv")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(assignment.getSessionId())))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse();
+
+        String disposition = response.getHeader("Content-Disposition");
+        String csv = response.getContentAsString();
+        assertThat(disposition).contains("attachment; filename=\"pending_submitters_session_" + assignment.getSessionId() + ".csv\"");
+        assertThat(csv).contains("evaluator_name,evaluator_employee_number,evaluator_department,evaluatee_name,evaluatee_employee_number,evaluatee_department,assigned_at");
+        assertThat(csv).contains("\"E001\"");
+        assertThat(csv).contains("\"E002\"");
+    }
+
+    @Test
+    void 기관관리자_미제출자_CSV_정렬_및_부서필터_테스트() throws Exception {
+        EvaluationFixture fixture = createEvaluationFixture(false);
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        EvaluationAssignment baseAssignment = assignmentRepository.findById(fixture.assignmentId()).orElseThrow();
+        Long evaluatorId = baseAssignment.getEvaluatorId();
+
+        String suffix = uniqueSuffix();
+        Department deptA = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("결과필터A-" + suffix)
+                .code(("RFA" + suffix).toUpperCase())
+                .active(true)
+                .build());
+        Department deptB = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("결과필터B-" + suffix)
+                .code(("RFB" + suffix).toUpperCase())
+                .active(true)
+                .build());
+
+        Employee evaluateeA = employeeRepository.save(Employee.builder()
+                .organizationId(1L)
+                .departmentId(deptA.getId())
+                .name("가나다-" + suffix)
+                .employeeNumber("EPA-" + suffix)
+                .position("대리")
+                .jobTitle("팀원")
+                .email("epa-" + suffix + "@example.com")
+                .status("ACTIVE")
+                .build());
+        Employee evaluateeB = employeeRepository.save(Employee.builder()
+                .organizationId(1L)
+                .departmentId(deptB.getId())
+                .name("하하하-" + suffix)
+                .employeeNumber("EPB-" + suffix)
+                .position("대리")
+                .jobTitle("팀원")
+                .email("epb-" + suffix + "@example.com")
+                .status("ACTIVE")
+                .build());
+
+        assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(baseAssignment.getSessionId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeA.getId())
+                .status("PENDING")
+                .build());
+        assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(baseAssignment.getSessionId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeB.getId())
+                .status("PENDING")
+                .build());
+
+        String sortedCsv = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/admin/evaluation/results/pending.csv")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(baseAssignment.getSessionId()))
+                        .param("pendingSortBy", "evaluateeName")
+                        .param("pendingSortDir", "asc"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        int idxA = sortedCsv.indexOf("가나다-" + suffix);
+        int idxB = sortedCsv.indexOf("하하하-" + suffix);
+        assertThat(idxA).isPositive();
+        assertThat(idxB).isPositive();
+        assertThat(idxA).isLessThan(idxB);
+
+        String filteredCsv = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/admin/evaluation/results/pending.csv")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(baseAssignment.getSessionId()))
+                        .param("departmentId", String.valueOf(deptA.getId()))
+                        .param("pendingSortBy", "evaluateeName")
+                        .param("pendingSortDir", "asc"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(filteredCsv).contains("가나다-" + suffix);
+        assertThat(filteredCsv).doesNotContain("하하하-" + suffix);
+    }
+
+    @Test
+    void 기관관리자_결과_CSV_다운로드_고도화_테스트() throws Exception {
+        EvaluationFixture fixture = createEvaluationFixture(false);
+        MockHttpSession userSession = loginAs("emp001", "password123");
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        EvaluationAssignment assignment = assignmentRepository.findById(fixture.assignmentId()).orElseThrow();
+
+        mockMvc.perform(post("/user/evaluations/{assignmentId}/submit", fixture.assignmentId())
+                        .session(userSession)
+                        .with(csrf())
+                        .param("scores[" + fixture.questionId() + "]", "5"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/user/evaluations/" + fixture.assignmentId() + "/complete"));
+
+        String evaluateeCsv = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/admin/evaluation/results/evaluatees.csv")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(assignment.getSessionId())))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(evaluateeCsv).contains("evaluatee_name,employee_number,department,submitted_count,total_count,submission_rate,average_score");
+        assertThat(evaluateeCsv).contains("\"이지영\"");
+
+        String departmentCsv = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/admin/evaluation/results/departments.csv")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(assignment.getSessionId())))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(departmentCsv).contains("department,evaluatee_count,submitted_count,total_count,submission_rate,average_score");
+
+        String assignmentCsv = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/admin/evaluation/results/assignments.csv")
+                        .session(adminSession)
+                        .param("sessionId", String.valueOf(assignment.getSessionId()))
+                        .param("assignmentSortBy", "evaluateeName")
+                        .param("assignmentSortDir", "asc"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(assignmentCsv).contains("evaluator_name,evaluator_employee_number,evaluator_department,evaluatee_name,evaluatee_employee_number,evaluatee_department,status,submitted_at,average_score");
+        assertThat(assignmentCsv).contains("\"김민수\"");
+        assertThat(assignmentCsv).contains("\"이지영\"");
+        assertThat(assignmentCsv).contains("\"SUBMITTED\"");
     }
 
     private MockHttpSession loginAs(String loginId, String password) throws Exception {

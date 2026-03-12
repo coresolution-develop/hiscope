@@ -8,6 +8,7 @@ import com.hiscope.evaluation.domain.account.dto.AccountUpdateRequest;
 import com.hiscope.evaluation.domain.account.entity.Account;
 import com.hiscope.evaluation.domain.account.repository.AccountRepository;
 import com.hiscope.evaluation.domain.employee.repository.UserAccountRepository;
+import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,11 +26,12 @@ public class AccountService {
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_INACTIVE = "INACTIVE";
     private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
-    private static final int TEMP_PASSWORD_LENGTH = 12;
+    private static final int DEFAULT_TEMP_PASSWORD_LENGTH = 12;
 
     private final AccountRepository accountRepository;
     private final UserAccountRepository userAccountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationSettingService organizationSettingService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public List<AccountResponse> findOrgAdminsByOrgId(Long orgId) {
@@ -40,6 +42,8 @@ public class AccountService {
     @Transactional
     public AccountResponse createOrgAdmin(AccountCreateRequest request) {
         validateLoginIdUnique(request.getLoginId());
+        int minPasswordLength = organizationSettingService.resolvePasswordMinLength(request.getOrganizationId());
+        validatePasswordPolicy(request.getPassword(), minPasswordLength);
 
         Account account = Account.builder()
                 .organizationId(request.getOrganizationId())
@@ -73,7 +77,9 @@ public class AccountService {
     @Transactional
     public String resetOrgAdminPassword(Long orgId, Long id) {
         Account account = getOrgAdmin(orgId, id);
-        String temporaryPassword = generateTemporaryPassword();
+        String temporaryPassword = generateTemporaryPassword(
+                Math.max(DEFAULT_TEMP_PASSWORD_LENGTH, organizationSettingService.resolvePasswordMinLength(orgId))
+        );
         account.updatePassword(passwordEncoder.encode(temporaryPassword));
         return temporaryPassword;
     }
@@ -94,12 +100,22 @@ public class AccountService {
         return account;
     }
 
-    private String generateTemporaryPassword() {
-        StringBuilder builder = new StringBuilder(TEMP_PASSWORD_LENGTH);
-        for (int i = 0; i < TEMP_PASSWORD_LENGTH; i++) {
+    private String generateTemporaryPassword(int length) {
+        StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
             int index = secureRandom.nextInt(TEMP_PASSWORD_CHARS.length());
             builder.append(TEMP_PASSWORD_CHARS.charAt(index));
         }
         return builder.toString();
+    }
+
+    private void validatePasswordPolicy(String password, int minLength) {
+        if (password == null || password.length() < minLength) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "비밀번호는 최소 " + minLength + "자 이상이어야 합니다.");
+        }
+        if (password.length() > 50) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호는 50자 이하여야 합니다.");
+        }
     }
 }

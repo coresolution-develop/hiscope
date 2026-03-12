@@ -7,6 +7,9 @@ import com.hiscope.evaluation.domain.organization.dto.OrganizationResponse;
 import com.hiscope.evaluation.domain.organization.entity.Organization;
 import com.hiscope.evaluation.domain.organization.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -21,26 +24,29 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
 
     public List<OrganizationResponse> findAll() {
-        return findAll(null, null);
+        return search(null, null, Pageable.unpaged()).getContent();
     }
 
     public List<OrganizationResponse> findAll(String keyword, String status) {
-        if (!StringUtils.hasText(keyword) && !StringUtils.hasText(status)) {
-            return organizationRepository.findAllByOrderByCreatedAtDesc()
-                    .stream()
-                    .map(OrganizationResponse::from)
-                    .toList();
+        return search(keyword, status, Pageable.unpaged()).getContent();
+    }
+
+    public Page<OrganizationResponse> search(String keyword, String status, Pageable pageable) {
+        String normalizedKeyword = normalizeKeyword(keyword);
+        String normalizedStatus = normalizeStatus(status);
+        Specification<Organization> spec = Specification.where(null);
+        if (StringUtils.hasText(normalizedKeyword)) {
+            String likeKeyword = "%" + normalizedKeyword.toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("name")), likeKeyword),
+                    cb.like(cb.lower(root.get("code")), likeKeyword)
+            ));
         }
-        return organizationRepository.findAllByOrderByCreatedAtDesc()
-                .stream().filter(org -> {
-                    boolean statusMatch = !StringUtils.hasText(status) || status.equals(org.getStatus());
-                    boolean keywordMatch = !StringUtils.hasText(keyword)
-                            || org.getName().toLowerCase().contains(keyword.trim().toLowerCase())
-                            || org.getCode().toLowerCase().contains(keyword.trim().toLowerCase());
-                    return statusMatch && keywordMatch;
-                })
-                .map(OrganizationResponse::from)
-                .toList();
+        if (StringUtils.hasText(normalizedStatus)) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), normalizedStatus));
+        }
+        return organizationRepository.findAll(spec, pageable)
+                .map(OrganizationResponse::from);
     }
 
     public OrganizationResponse findById(Long id) {
@@ -75,5 +81,19 @@ public class OrganizationService {
     public Organization getOrganization(Long id) {
         return organizationRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORGANIZATION_NOT_FOUND));
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return null;
+        }
+        return keyword.trim();
+    }
+
+    private String normalizeStatus(String status) {
+        if ("ACTIVE".equals(status) || "INACTIVE".equals(status)) {
+            return status;
+        }
+        return null;
     }
 }
