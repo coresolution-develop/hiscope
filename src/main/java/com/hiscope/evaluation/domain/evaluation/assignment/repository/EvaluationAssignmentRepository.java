@@ -13,10 +13,12 @@ public interface EvaluationAssignmentRepository extends JpaRepository<Evaluation
     List<EvaluationAssignment> findBySessionId(Long sessionId);
 
     List<EvaluationAssignment> findByOrganizationIdAndSessionId(Long organizationId, Long sessionId);
+    List<EvaluationAssignment> findByOrganizationIdAndSessionIdIn(Long organizationId, List<Long> sessionIds);
 
     List<EvaluationAssignment> findByEvaluatorId(Long evaluatorId);
 
     List<EvaluationAssignment> findByEvaluatorIdAndSessionId(Long evaluatorId, Long sessionId);
+    List<EvaluationAssignment> findByOrganizationIdAndEvaluateeIdOrderByCreatedAtDesc(Long organizationId, Long evaluateeId);
 
     Optional<EvaluationAssignment> findByOrganizationIdAndId(Long organizationId, Long id);
 

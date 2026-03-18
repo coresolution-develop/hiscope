@@ -6,6 +6,7 @@ import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.common.util.CsvUtils;
 import com.hiscope.evaluation.domain.upload.dto.UploadError;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
+import com.hiscope.evaluation.domain.upload.dto.EmployeeUploadPreview;
 import com.hiscope.evaluation.domain.upload.entity.UploadHistory;
 import com.hiscope.evaluation.domain.upload.handler.DepartmentUploadHandler;
 import com.hiscope.evaluation.domain.upload.handler.EmployeeUploadHandler;
@@ -153,6 +154,12 @@ public class UploadService {
             uploadHistoryService.record(orgId, failResult, uploadedBy);
             throw new BusinessException(ErrorCode.EXCEL_PARSE_ERROR, "엑셀 처리 중 시스템 오류가 발생했습니다.");
         }
+    }
+
+    public EmployeeUploadPreview previewEmployees(Long orgId, MultipartFile file) {
+        SecurityUtils.checkOrgAccess(orgId);
+        validateFileType(file);
+        return employeeHandler.preview(orgId, file);
     }
 
     /** .xlsx 확장자 검증 — 다른 형식 업로드 시도 조기 차단 */

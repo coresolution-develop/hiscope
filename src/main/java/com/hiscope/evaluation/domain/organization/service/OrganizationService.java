@@ -5,6 +5,8 @@ import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.domain.organization.dto.OrganizationCreateRequest;
 import com.hiscope.evaluation.domain.organization.dto.OrganizationResponse;
 import com.hiscope.evaluation.domain.organization.entity.Organization;
+import com.hiscope.evaluation.domain.organization.enums.OrganizationProfile;
+import com.hiscope.evaluation.domain.organization.enums.OrganizationType;
 import com.hiscope.evaluation.domain.organization.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,7 @@ import java.util.List;
 public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
+    private final OrganizationProfileBootstrapService organizationProfileBootstrapService;
 
     public List<OrganizationResponse> findAll() {
         return search(null, null, Pageable.unpaged()).getContent();
@@ -58,24 +61,34 @@ public class OrganizationService {
         if (organizationRepository.existsByCode(request.getCode())) {
             throw new BusinessException(ErrorCode.ORGANIZATION_CODE_DUPLICATE);
         }
+        OrganizationType organizationType = request.getOrganizationType() == null
+                ? OrganizationType.HOSPITAL
+                : request.getOrganizationType();
+        OrganizationProfile organizationProfile = resolveOrganizationProfile(organizationType, request.getOrganizationProfile());
         Organization org = Organization.builder()
                 .name(request.getName())
                 .code(request.getCode())
                 .status("ACTIVE")
+                .organizationType(organizationType)
+                .organizationProfile(organizationProfile)
                 .build();
-        return OrganizationResponse.from(organizationRepository.save(org));
+        Organization saved = organizationRepository.save(org);
+        organizationProfileBootstrapService.bootstrap(saved.getId(), saved.getOrganizationType(), saved.getOrganizationProfile());
+        return OrganizationResponse.from(saved);
     }
 
     @Transactional
     public void updateStatus(Long id, String status) {
         Organization org = getOrganization(id);
-        org.update(org.getName(), status);
+        org.update(org.getName(), status, org.getOrganizationType(), org.getOrganizationProfile());
     }
 
     @Transactional
-    public void update(Long id, String name, String status) {
+    public void update(Long id, String name, String status, OrganizationType organizationType, OrganizationProfile organizationProfile) {
         Organization org = getOrganization(id);
-        org.update(name, status);
+        OrganizationType effectiveType = organizationType == null ? org.getOrganizationType() : organizationType;
+        OrganizationProfile effectiveProfile = resolveOrganizationProfile(effectiveType, organizationProfile);
+        org.update(name, status, effectiveType, effectiveProfile);
     }
 
     public Organization getOrganization(Long id) {
@@ -95,5 +108,22 @@ public class OrganizationService {
             return status;
         }
         return null;
+    }
+
+    private OrganizationProfile resolveOrganizationProfile(OrganizationType organizationType,
+                                                           OrganizationProfile requestedProfile) {
+        OrganizationProfile defaultProfile = organizationType == OrganizationType.HOSPITAL
+                ? OrganizationProfile.HOSPITAL_DEFAULT
+                : OrganizationProfile.AFFILIATE_GENERAL;
+        OrganizationProfile profile = requestedProfile == null ? defaultProfile : requestedProfile;
+        boolean valid = switch (organizationType) {
+            case HOSPITAL -> profile == OrganizationProfile.HOSPITAL_DEFAULT;
+            case AFFILIATE -> profile == OrganizationProfile.AFFILIATE_HOSPITAL
+                    || profile == OrganizationProfile.AFFILIATE_GENERAL;
+        };
+        if (!valid) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "조직 유형과 운영 프로파일 조합이 올바르지 않습니다.");
+        }
+        return profile;
     }
 }

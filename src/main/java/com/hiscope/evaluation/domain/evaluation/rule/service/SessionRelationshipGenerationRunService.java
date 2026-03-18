@@ -26,6 +26,14 @@ public class SessionRelationshipGenerationRunService {
         return runRepository.findBySessionIdOrderByExecutedAtDesc(sessionId, PageRequest.of(0, Math.max(1, size)));
     }
 
+    public boolean hasSuccessfulRuleBasedRun(Long sessionId) {
+        return runRepository.existsBySessionIdAndGenerationModeAndStatus(
+                sessionId,
+                RelationshipGenerationMode.RULE_BASED,
+                "SUCCESS"
+        );
+    }
+
     @Transactional
     public void recordSuccess(Long orgId,
                               Long sessionId,

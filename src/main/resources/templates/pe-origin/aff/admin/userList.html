@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:attr="data-collapsed=${sidebarCollapsed ? 'true' : 'false'}"
+      th:styleappend="|--nav-w:${sidebarCollapsed ? '70px' : '240px'}|">
+<head>
+    <meta charset="UTF-8">
+
+    <!-- SNS 공유시 썸네일 표시(보통 헤드에 들어감) -->
+    <meta property="og:title" content="코어솔루션 인사평가시스템">	<!-- 공유시 사이트 이름 -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hr.sosyge.net/pe/login">	<!-- 공유시 입력될 URL -->
+    <meta property="og:image" content="/resources/Sharing/img/core_icon_big.png">	<!-- 공유시 노출 이미지 (최적 사이즈 : 800 x 400) -->
+    <meta property="og:description" content="코어솔루션 인사평가시스템">	<!-- 공유시 보여질 사이트 간략 소개 -->
+    <title>관리자페이지</title>
+    <link rel="stylesheet" th:href="@{/css/css.css}">
+    <link rel="stylesheet" th:href="@{/css/alertcss.css}">
+    <link rel="stylesheet" th:href="@{/css/demoheadercss.css}">
+    <link rel="stylesheet" th:href="@{/css/leftMenu.css}">
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" th:href="@{/css/leftMenucss2025.css}">
+	<link rel="stylesheet" th:href="@{/css/Include/spinner.css}" />
+    <link rel="shortcut icon" th:href="@{/favicon/favicon.ico}">
+    <link rel="apple-touch-icon" sizes="180x180" th:href="@{/favicon/favicon.ico}">
+    <link rel="icon" sizes="192x192" th:href="@{/favicon/favicon.ico}">
+    <style>
+.bg-425c7b {
+	background: #425c7b;
+	color: #fff;
+}
+.bg-586f8b {
+	background: #586f8b;
+	color: #fff;
+}
+.bg-d9e9e9 {
+	background: #d9e9e9;
+}/* 
+.tr-bottom::before {
+	content: "";
+	position: absolute;
+	top: 1px;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+	border-bottom: 1px solid #cccccc;
+} */
+main {
+	width: 100%;
+	background: #f7f7f7;
+	margin-left: 240px;
+}
+.pd {
+	border-top: 11px solid #f7f7f7;
+	position: fixed;
+	top: 62px;
+	width: 100%;
+	z-index: 999;
+}
+td, th {/* 
+	border: 1px solid #d7d7d7; */
+	height: 45px;
+	text-align: center;/*
+	border-right: 1px solid #d7d7d7; 
+	border-bottom: 1px solid #d7d7d7; */
+	font-size: 12px;
+}
+.lasttd {/* 
+	border-right:1px solid #d7d7d7;
+	border-bottom:1px solid #d7d7d7; */
+}
+
+.scroll-container {
+	padding: 10px; 
+}
+.scrolltable {
+	width: 100%;
+	border: 2px solid #cccccc;
+	color: #222222;
+}
+.sticky-top {
+	position: -webkit-sticky;
+    position: sticky;
+    top: 72px;
+    z-index: 2; /* 높은 z-index 값을 설정 */
+}
+.sticky-top::before {
+	content: "";
+	position: absolute;
+	top: 1px;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+	border-bottom: 1px solid #d7d7d7;
+    border-right: 1px solid #d7d7d7;
+}
+.sticky-top:nth-child(1)::before {
+	border-right: 1px solid #cccccc;	
+}
+.sticky-top:nth-child(2)::before {
+	border-left: 1px solid #cccccc;	
+}
+.sticky-middle {
+	position: -webkit-sticky;
+    position: sticky;
+    top: 117px;
+    z-index: 2;
+}
+.sticky-middle::before {
+	content: "";
+	position: absolute;
+	top: -1px;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+	border-top: 1px solid #d7d7d7;
+    border-right: 1px solid #d7d7d7;
+}
+.sticky-middle:nth-child(4)::before {
+	border-right: 1px solid #cccccc;
+}
+.sticky-bottom {
+	position: -webkit-sticky;
+    position: sticky;
+    top: 162px;
+    z-index: 2;
+    color: #222222;
+}
+.sticky-bottom::before {
+	content: "";
+	position: absolute;
+	top: 0px;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+	border-top: 2px solid #d7d7d7;
+    border-right: 1px solid #d7d7d7;
+	border-bottom: 2px solid #cccccc;
+}
+.sticky-bottom:nth-child(2)::before {
+	border-left: 1px solid #cccccc;
+}
+tbody th, tbody td {
+    position: relative; /* 상대 위치 설정 */
+    z-index: 1; /* 낮은 z-index 값을 설정 */
+}
+tbody td::before {
+    border-right: 1px solid #d7d7d7;
+	border-bottom: 1px solid #d7d7d7;
+}
+.scrolltable > thead{
+	color: #fff;
+}
+.scrolltable td:nth-child(4) {
+	border-right: 2px solid #ccc;
+}
+.nav__link {
+	display: flex;
+	align-items: center;
+	height: 64px;
+	padding-left: 25px;
+	border-left: 4px solid #2f425a;
+	cursor:pointer;
+}
+.active {
+	border-left: 4px solid #00bec2;
+	background: #293a4f;
+	color: #fff;
+	padding-left: 30px;
+	
+}
+.bg-gray {
+	background: #eaeaea;
+}
+.infotable {
+	width: 100%;
+	border: 2px solid #cccccc;
+}
+.infotable > thead > tr > th {
+	background: #425c7b;
+	color: #fff;
+	border: 1px solid #d7d7d7;
+	border-bottom: 2px solid #ccc;
+}
+.pointer {
+	cursor: pointer;
+}
+.info-sticky-top::before {
+	content: "";
+	border-bottom: 2px solid #ccc;
+}
+.link-btn {
+	cursor: pointer;
+	width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+.btn-css {
+	width: 90%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	border: 1px solid #ddd;
+	height: 90%;
+	border-radius: 5px;
+	box-shadow: 0 1px 1px rgba(0,0,0,0.12), 0 1px 1px rgba(0,0,0,0.24);
+	-webkit-transition: all 0.15s ease-in-out;
+	-moz-transition: all 0.15s ease-in-out;
+	-ms-transition: all 0.15s ease-in-out;
+	-o-transition: all 0.15s ease-in-out;
+	transition: all 0.15s ease-in-out;
+	background: #fafafa;
+}
+.btn-css:hover {
+	-webkit-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.19), 0 2px 3px rgba(0, 0, 0, 0.23);
+	-moz-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.19), 0 2px 3px rgba(0, 0, 0, 0.23);
+	-ms-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.19), 0 2px 3px rgba(0, 0, 0, 0.23);
+	-o-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.19), 0 2px 3px rgba(0, 0, 0, 0.23);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.19), 0 2px 3px rgba(0, 0, 0, 0.23);
+}
+section {
+	display: flex;
+	margin-top: 62px;
+}
+.icon-image {
+	margin-right: 10px;
+}
+/* :root {
+  --nav-w: 240px;
+  --header-h: 62px;
+  --container-max: 1280px;
+} */
+
+.main-inner {
+  max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card {
+  background:#fff; border:1px solid #e9ecef; border-radius:10px; padding:20px 24px; margin-bottom:20px;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+}
+.card h2 { margin:0 0 6px; font-size:20px; color:#2a384a; }
+.muted { color:#666; font-size:13px; }
+
+/* 툴바 */
+.toolbar {
+  display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:12px;
+  flex-wrap:wrap;
+}
+.toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.toolbar-left input[type=text], .toolbar-left select {
+  height:36px; padding:6px 10px; border:1px solid #d0d7de; border-radius:6px; box-sizing:border-box;
+}
+.white-btn { background:#fff; border:1px solid #d0d7de; color:#333; cursor:pointer; border-radius:6px; height:36px; padding:0 12px; }
+.white-btn:hover { background:#f8f9fa; }
+.toolbar-right { display:flex; align-items:center; gap:10px; }
+.count { font-size:13px; color:#444; }
+.orange-btn { background:#f89d00; border:1px solid #f89d00; color:#fff; cursor:pointer; border-radius:6px; height:36px; padding:0 12px; }
+.orange-btn:hover { filter:brightness(.96); }
+
+/* 테이블 */
+.table-wrap { overflow:auto; max-height: calc(100vh - 353px); border:1px solid #e9ecef; border-radius:8px; }
+.data-table { width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:13px; }
+.data-table th, .data-table td {
+  border-bottom:1px solid #eceff3; padding:8px 12px; height:var(--row-h); vertical-align:middle; background:#fff;
+}
+.data-table thead th {
+  position: sticky; top: 0; z-index: 3; background:#f3f5f8; font-weight:600; border-bottom:1px solid #dfe3e8;
+  backdrop-filter: blur(2px);
+}
+.data-table tbody tr:nth-child(even) td { background:#fafbfc; }     /* 지브라 */
+.data-table tbody tr:hover td          { background:#f1f6ff; }       /* 호버 */
+
+/* 선택 열(체크박스) */
+.select-col { width: 44px; text-align:center; }
+.select-col input[type=checkbox] { transform: scale(1.05); }
+
+/* 좌측 고정 열 (이름/사번) */
+.sticky-col { position: sticky; background:#fff; z-index: 2; }
+.col-name { left: 44px; min-width: 120px; font-weight:600; }
+.col-id   { left: calc(44px + 120px); min-width: 120px; color:#666; }
+
+/* 헤더도 동일한 좌표로 */
+.data-table thead .col-name { left: 44px; z-index:4; }
+.data-table thead .col-id   { left: calc(44px + 120px); z-index:4; }
+
+/* 긴 텍스트 말줄임 */
+.data-table td { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* 버튼(표 안) */
+.btn-css.link-btn {
+  width: 100%; height: 32px; border-radius:6px; background:#fff; border:1px solid #d0d7de;
+}
+.btn-css.link-btn:hover { background:#f8f9fa; }
+
+/* 반응형 */
+@media (max-width: 1200px){
+  .main-inner { margin: calc(var(--header-h) + 10px) auto 24px; }
+  .toolbar { gap:10px; }
+}
+.pagination {
+  display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:12px;
+    justify-content: center;
+}
+.pagination .page {
+  min-width:36px; height:36px; padding:0 10px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid #d0d7de; border-radius:8px;
+  background:#fff; color:#333; text-decoration:none; font-weight:500;
+}
+.pagination .page:hover { background:#f8f9fa; }
+.pagination .is-current {
+  background:#1b304a; border-color:#1b304a; color:#fff; pointer-events:none;
+}
+.pagination .is-disabled { opacity:.45; pointer-events:none; }
+.pagination .prev, .pagination .next { font-weight:700; }
+
+.pagination .page:focus-visible {
+  outline:2px solid #1b6ef3; outline-offset:2px;
+}
+
+@media (max-width:560px){
+  .pagination { gap:4px; }
+  .pagination .page { min-width:32px; height:32px; padding:0 8px; }
+}
+/* === 직원명부 표: 말줄임 제거 & 고정열 해제 === */
+
+/* 고정열 클래스가 남아있어도 일반 흐름으로 작동하도록 무력화 */
+.data-table .sticky-col { position: static !important; left: auto !important; z-index: auto !important; }
+
+/* 헤더 sticky는 유지 */
+.data-table thead .sticky-head { position: sticky; top: 0; z-index: 3; }
+
+/* 줄바꿈 허용: 말줄임 제거 */
+.data-table { table-layout: auto; }  /* 콘텐츠에 맞춰 열 폭 계산 */
+.data-table th, .data-table td {
+  height: auto;                /* 고정 높이 해제 */
+  line-height: 1.45;
+  white-space: normal;         /* 줄바꿈 허용 */
+  overflow: visible;           /* 숨기지 않음 */
+  text-overflow: clip;         /* 말줄임표 제거 */
+  word-break: break-word;      /* 긴 단어/영문도 줄바꿈 */
+}
+
+/* 좁은 화면에서 과도한 가로 스크롤 방지 - 기본 최소폭만 지정(선택) */
+.data-table th:nth-child(1),
+.data-table td:nth-child(1),
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) { min-width: 165px; }   /* 기관/소속기관 */
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) { min-width: 120px; }   /* 부서명 */
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) { min-width: 95px; }    /* 이름 */
+.data-table th:nth-child(5),
+.data-table td:nth-child(5) { min-width: 110px; }   /* 사번 */
+.data-table th:nth-child(6),
+.data-table td:nth-child(6) { min-width: 140px; }   /* 직책 */
+.data-table th:nth-child(7),
+.data-table td:nth-child(7) { min-width: 90px; }   /* 비밀번호 */
+.data-table th:nth-child(7),
+.data-table td:nth-child(7) { min-width: 130px; }   /* 마이페이지 */
+/* ========== Compact mode (살짝 작게) ========== */
+.compact .card h2 { font-size:18px; }                 /* 20 → 18 */
+.compact .muted    { font-size:12px; }                /* 13 → 12 */
+
+.compact .toolbar input[type=text],
+.compact .toolbar select { height:32px; font-size:12px; } /* 36 → 32 */
+
+.compact .white-btn,
+.compact .orange-btn { height:32px; padding:0 10px; font-size:12px; } /* 36 → 32 */
+
+.compact .data-table { font-size:12px; }              /* 13 → 12 */
+.compact .data-table th,
+.compact .data-table td {
+  padding:6px 10px;                                   /* 8/12 → 6/10 */
+  line-height:1.35;                                   /* 약간 더 촘촘하게 */
+}
+
+.compact .btn-css.link-btn { height:30px; font-size:12px; }  /* 32 → 30 */
+
+.compact .pagination .page {                          /* 페이지네이션 살짝 축소 */
+  min-width:32px; height:32px; padding:0 8px; font-size:12px;
+}
+
+/* 카드 등장 애니메이션 */
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 초기 상태: 보이지 않게 */
+.card {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+/* 페이지 준비되면 실행 */
+.page-ready .card {
+  animation: card-rise .32s ease-out both;
+}
+
+/* 여러 카드가 있으면 살짝씩 지연 (스태거) */
+.page-ready .card:nth-of-type(2) { animation-delay: .05s; }
+.page-ready .card:nth-of-type(3) { animation-delay: .10s; }
+.page-ready .card:nth-of-type(4) { animation-delay: .15s; }
+
+/* 모션 최소화 환경에선 애니메이션 비활성화 */
+@media (prefers-reduced-motion: reduce) {
+  .card, .page-ready .card { animation: none !important; opacity: 1; transform: none; }
+}
+/* 테이블 래퍼: 세로 레이아웃 + 최대 높이 유지 */
+.table-wrap{
+  display:flex;
+  flex-direction:column;
+  /* 기존 calc(100vh - 353px) 값 그대로 사용 */
+  max-height: calc(100vh - 353px);
+  border:1px solid #e9ecef;
+  border-radius:8px;
+  overflow:hidden; /* 모서리 깔끔하게 */
+}
+
+/* 공통 테이블 */
+.data-table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout:fixed;   /* colgroup 폭 적용 안정화 */
+  font-size:13px;
+}
+.data-table th,
+.data-table td{
+  border-bottom:1px solid #eceff3;
+  padding:8px 12px;
+  vertical-align:middle;
+  background:#fff;
+}
+
+/* 헤더 테이블 전용(스크롤 없음) */
+.tbl-head thead th{
+  background:#f3f5f8;
+  font-weight:600;
+  border-bottom:1px solid #dfe3e8;
+  position: sticky;      /* 상단 고정 효과 유지 */
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(2px);
+}
+
+/* 바디 스크롤 컨테이너 — 여기만 스크롤바 */
+.tbody-scroll{
+  flex:1 1 auto;
+  overflow:auto;                 /* ← 스크롤바는 여기에만 생성 */
+  -webkit-overflow-scrolling:touch;
+  background:#fff;
+}
+
+/* 지브라/호버는 바디에만 */
+.tbl-body tbody tr:nth-child(even) td{ background:#fafbfc; }
+.tbl-body tbody tr:hover td{ background:#f1f6ff; }
+    </style>
+</head>
+<body>
+    <div th:replace="~{Include/afflayout :: header}"></div>
+    <div th:replace="~{Include/afflayout :: nav_section}"></div>
+    <div class="main-content compact">
+  <div class="main-inner">
+
+    <div class="card">
+      <div class="intro">
+        <h2>직원 명부</h2>
+        <p class="muted">필터를 적용해 빠르게 찾아보세요.</p>
+      </div>
+
+      <!-- 🔎 필터 툴바 -->
+      <form class="toolbar" th:action="@{/aff/admin/userList}" method="get">
+        <input type="hidden" name="year" th:value="${year}"/>
+
+        <div class="toolbar-left">
+          <input type="text" name="q" th:value="${q}" placeholder="이름/사번/부서/팀 검색"/>
+          <!-- 기관 필터 -->
+    <select name="org">
+      <option value="">기관 전체</option>
+      <option th:each="o : ${organizations}"
+              th:value="${o}"
+              th:text="${o}"
+              th:selected="${org} == ${o}"></option>
+    </select>
+
+    <!-- 부서 필터 -->
+    <select name="dept">
+      <option value="">부서 전체</option>
+      <th:block th:each="dept : ${departments}">
+        <option th:value="${dept.subCode}" th:text="${dept.subName}"
+                th:selected="${deptCode} == ${dept.subCode}"></option>
+      </th:block>
+    </select>
+
+    <!-- 비밀번호 필터 -->
+    <select name="pwd">
+      <option value="">비밀번호 전체</option>
+      <option value="set"   th:selected="${pwd} == 'set'">설정됨</option>
+      <option value="unset" th:selected="${pwd} == 'unset'">미설정</option>
+    </select>
+
+    <button type="submit" class="white-btn">필터 적용</button>
+        </div>
+
+        <div class="toolbar-right">
+          <span class="count" th:text="|총 ${totalCount}명|">총 0명</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- <div class="card">
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="sticky-head">기관명</th>
+          <th class="sticky-head">소속기관명</th>
+          <th class="sticky-head">부서명</th>
+          <th class="sticky-head">이름</th>
+          <th class="sticky-head">사번</th>
+          <th class="sticky-head">직책</th>
+          <th class="sticky-head">비밀번호</th>
+          <th class="sticky-head">평가자<br>마이페이지</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr th:each="user : ${userList}" th:if="${user.id != '12365478'}">
+          <td th:text="${user.cName}">기관명</td>
+          <td th:text="${user.cName2}">소속기관명</td>
+          <td th:text="${user.subName}">부서명</td>
+          <td th:text="${user.name}">이름</td>
+          <td th:text="${user.id}">사번</td>
+          <td th:text="${user.position}">직책</td>
+          <td th:text="${user.passwordSet} ? '설정됨' : '미설정'">미설정</td>
+          <td>
+            <button class="btn-css link-btn"
+                    th:onclick="|location.href='@{/admin/userInfo/{idx}(idx=${user.idx})}'|">
+              마이페이지
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div> -->
+<div class="card">
+  <div class="table-wrap">
+
+    <!-- 헤더 테이블 (스크롤 없음) -->
+    <table class="data-table tbl-head">
+      <colgroup>
+        <col style="width:16%">
+        <col style="width:16%">
+        <col style="width:16%">
+        <col style="width:12%">
+        <col style="width:12%">
+        <col style="width:12%">
+        <col style="width:8%">
+        <col style="width:8%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>기관명</th>
+          <th>소속기관명</th>
+          <th>부서명</th>
+          <th>이름</th>
+          <th>사번</th>
+          <th>직책</th>
+          <th>비밀번호</th>
+          <th>평가자<br>마이페이지</th>
+        </tr>
+      </thead>
+    </table>
+
+    <!-- 바디 스크롤 영역 (여기에만 스크롤바) -->
+    <div class="tbody-scroll">
+      <table class="data-table tbl-body">
+        <colgroup>
+          <!-- 위 colgroup과 동일하게 복사 -->
+          <col style="width:16%">
+          <col style="width:16%">
+          <col style="width:16%">
+          <col style="width:12%">
+          <col style="width:12%">
+          <col style="width:12%">
+          <col style="width:8%">
+          <col style="width:8%">
+        </colgroup>
+        <tbody id="user-tbody">
+          <tr th:each="user : ${userList}" th:if="${user.id != '12365478'}">
+            <td th:text="${user.cName}">기관명</td>
+            <td th:text="${user.cName2}">소속기관명</td>
+            <td th:text="${user.subName}">부서명</td>
+            <td th:text="${user.name}">이름</td>
+            <td th:text="${user.id}">사번</td>
+            <td th:text="${user.position}">직책</td>
+            <td th:text="${user.passwordSet} ? '설정됨' : '미설정'">미설정</td>
+            <td>
+              <button class="btn-css link-btn"
+                      th:onclick="|location.href='@{/aff/admin/userInfo/{idx}(idx=${user.idx})}'|">
+                마이페이지
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+      <!-- 선택: 간단 페이지네이션 -->
+      <nav class="pagination" aria-label="페이지 네비게이션"
+     th:if="${totalCount > size}"
+     th:with="prev=${page > 1} ? ${page-1} : 1,
+              next=${page < totalPages} ? ${page+1} : ${totalPages}">
+  <a class="page prev"
+     th:classappend="${page == 1} ? ' is-disabled' : ''"
+     th:href="@{/admin/userList(year=${year}, q=${q}, dept=${deptCode}, pwd=${pwd}, page=${prev}, size=${size})}"
+     aria-label="이전 페이지"><</a>
+
+  <a class="page"
+     th:each="p : ${#numbers.sequence(1, totalPages)}"
+     th:text="${p}"
+     th:href="@{/admin/userList(year=${year}, q=${q}, dept=${deptCode}, pwd=${pwd}, page=${p}, size=${size})}"
+     th:classappend="${p} == ${page} ? ' is-current' : ''"
+     th:ariaCurrent="${p} == ${page} ? 'page' : null"></a>
+
+  <a class="page next"
+     th:classappend="${page == totalPages} ? ' is-disabled' : ''"
+     th:href="@{/admin/userList(year=${year}, q=${q}, dept=${deptCode}, pwd=${pwd}, page=${next}, size=${size})}"
+     aria-label="다음 페이지">></a>
+</nav>
+
+  </div>
+</div>
+
+  <!-- 스피너 오버레이 -->
+<div id="spinner-overlay" style="display:none;">
+  <div class="spinner-container">
+    <div class="spinner"></div>
+    <p>잠시만 기다려주세요</p>
+  </div>
+</div>
+    <script src="https://code.jquery.com/jquery-latest.min.js"></script>
+	<div th:replace="~{Include/afflayout :: scripts}"></div>
+    <script th:src="@{/js/admin/admin.js}"></script>
+
+<script>
+  function toggleAll(master){
+    const boxes = document.querySelectorAll('input[name="sel"]');
+    boxes.forEach(b => b.checked = master.checked);
+  }
+  function bulkReset(){
+    const ids = [...document.querySelectorAll('input[name="sel"]:checked')].map(i=>i.value);
+    if(ids.length === 0){ alert('선택된 사용자가 없습니다.'); return; }
+    if(!confirm(ids.length + '명의 비밀번호를 초기화할까요?')) return;
+    // 👉 여기서 fetch/폼 POST 로직 연결 (백엔드 엔드포인트에 맞춰주세요)
+    // fetch('/admin/resetPasswordBulk', {method:'POST', body: JSON.stringify(ids), ...})
+    alert('샘플: ' + ids.join(', '));
+  }
+
+	window.addEventListener('DOMContentLoaded', function () {
+    document.body.classList.add('page-ready');
+  });
+</script>
+</body>
+</html>

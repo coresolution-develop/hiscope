@@ -12,7 +12,15 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     Optional<Account> findByLoginIdAndStatus(String loginId, String status);
 
+    Optional<Account> findByOrganizationIdAndLoginId(Long organizationId, String loginId);
+
+    Optional<Account> findByOrganizationIdAndLoginIdAndStatus(Long organizationId, String loginId, String status);
+
+    List<Account> findAllByLoginIdAndStatus(String loginId, String status);
+
     boolean existsByLoginId(String loginId);
+
+    boolean existsByOrganizationIdAndLoginId(Long organizationId, String loginId);
 
     List<Account> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId);
 

@@ -155,26 +155,39 @@ public class EvaluationSessionService {
     public void start(Long orgId, Long sessionId) {
         SecurityUtils.checkOrgAccess(orgId);
         EvaluationSession session = getByOrgAndId(orgId, sessionId);
+        if (!session.isPending()) {
+            throw new BusinessException(ErrorCode.SESSION_STATUS_INVALID, "대기 상태에서만 시작 가능합니다.");
+        }
         if (session.isRuleBasedGeneration()) {
             if (session.getRelationshipDefinitionSetId() == null) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT,
                         "RULE_BASED 세션은 관계 정의 세트를 지정해야 시작할 수 있습니다.");
             }
             try {
-                var summary = relationshipGenerationService.generateForSession(orgId, sessionId, session.getRelationshipDefinitionSetId());
+                RelationshipGenerationService.GenerationSummary summary = null;
+                boolean hasPreparedSnapshot = generationRunService.hasSuccessfulRuleBasedRun(sessionId);
+                if (!hasPreparedSnapshot) {
+                    summary = relationshipGenerationService.generateForSession(
+                            orgId,
+                            sessionId,
+                            session.getRelationshipDefinitionSetId()
+                    );
+                }
                 var finalRelationships = relationshipGenerationService.resolveFinalRelationships(orgId, sessionId);
                 legacyRelationshipMirrorAdapter.mirror(orgId, sessionId, finalRelationships);
                 long overrideAppliedCount = finalRelationships.stream()
                         .filter(RelationshipGenerationService.FinalRelationship::overriddenByAdmin)
                         .count();
-                generationRunService.recordSuccess(
-                        orgId,
-                        sessionId,
-                        RelationshipGenerationMode.RULE_BASED,
-                        summary,
-                        overrideAppliedCount,
-                        summary.finalRelationshipCount()
-                );
+                if (summary != null) {
+                    generationRunService.recordSuccess(
+                            orgId,
+                            sessionId,
+                            RelationshipGenerationMode.RULE_BASED,
+                            summary,
+                            overrideAppliedCount,
+                            summary.finalRelationshipCount()
+                    );
+                }
             } catch (BusinessException e) {
                 generationRunService.recordFailure(orgId, sessionId, RelationshipGenerationMode.RULE_BASED, e.getMessage());
                 throw e;

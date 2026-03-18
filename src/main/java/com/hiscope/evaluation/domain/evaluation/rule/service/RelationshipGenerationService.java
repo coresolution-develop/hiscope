@@ -80,6 +80,7 @@ public class RelationshipGenerationService {
         Map<Long, Long> generatedCountByRule = new LinkedHashMap<>();
 
         generatedRelationshipRepository.deleteBySessionId(sessionId);
+        generatedRelationshipRepository.flush();
 
         for (RelationshipDefinitionRule rule : activeRules) {
             List<RelationshipRuleMatcher> matchers = matchersByRuleId.getOrDefault(rule.getId(), List.of());

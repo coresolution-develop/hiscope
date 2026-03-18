@@ -54,7 +54,7 @@ public class EvaluationResponseService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSIGNMENT_NOT_FOUND));
         EvaluationSession session = sessionRepository.findByOrganizationIdAndId(orgId, assignment.getSessionId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
-        return questionRepository.findByTemplateIdAndActiveOrderBySortOrderAsc(session.getTemplateId(), true);
+        return findQuestionsByAssignment(session.getTemplateId(), assignment.getResolvedQuestionGroupCode());
     }
 
     public EvaluationResponse findResponse(Long assignmentId) {
@@ -91,8 +91,10 @@ public class EvaluationResponseService {
         }
 
         // ③④ 문항 유효성 검증: 세션 템플릿 소속 여부 + SCALE 점수 범위
-        List<EvaluationQuestion> questions = questionRepository
-                .findByTemplateIdAndActiveOrderBySortOrderAsc(session.getTemplateId(), true);
+        List<EvaluationQuestion> questions = findQuestionsByAssignment(
+                session.getTemplateId(),
+                assignment.getResolvedQuestionGroupCode()
+        );
         Map<Long, EvaluationQuestion> questionMap = questions.stream()
                 .collect(Collectors.toMap(EvaluationQuestion::getId, q -> q));
         validateAnswers(request, questionMap);
@@ -178,5 +180,20 @@ public class EvaluationResponseService {
                         .responseId(responseId).questionId(questionId).build());
         item.update(score, text);
         itemRepository.save(item);
+    }
+
+    private List<EvaluationQuestion> findQuestionsByAssignment(Long templateId, String resolvedQuestionGroupCode) {
+        if (resolvedQuestionGroupCode == null || resolvedQuestionGroupCode.isBlank()) {
+            return questionRepository.findByTemplateIdAndActiveOrderBySortOrderAsc(templateId, true);
+        }
+        List<EvaluationQuestion> groupedQuestions = questionRepository
+                .findByTemplateIdAndActiveAndQuestionGroupCodeOrderBySortOrderAsc(templateId, true, resolvedQuestionGroupCode);
+        if (groupedQuestions.isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT,
+                    "배정된 문항군(" + resolvedQuestionGroupCode + ")에 해당하는 문항이 템플릿에 없습니다."
+            );
+        }
+        return groupedQuestions;
     }
 }

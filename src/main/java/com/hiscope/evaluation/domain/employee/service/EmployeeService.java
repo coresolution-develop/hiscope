@@ -110,7 +110,7 @@ public class EmployeeService {
         if (employeeRepository.existsByOrganizationIdAndEmployeeNumber(orgId, request.getEmployeeNumber())) {
             throw new BusinessException(ErrorCode.EMPLOYEE_NUMBER_DUPLICATE);
         }
-        validateLoginIdUnique(request.getLoginId());
+        validateLoginIdUnique(orgId, request.getLoginId());
         int minPasswordLength = organizationSettingService.resolvePasswordMinLength(orgId);
 
         Employee emp = Employee.builder()
@@ -180,8 +180,9 @@ public class EmployeeService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
     }
 
-    private void validateLoginIdUnique(String loginId) {
-        if (accountRepository.existsByLoginId(loginId) || userAccountRepository.existsByLoginId(loginId)) {
+    private void validateLoginIdUnique(Long orgId, String loginId) {
+        if (accountRepository.existsByOrganizationIdAndLoginId(orgId, loginId)
+                || userAccountRepository.existsByOrganizationIdAndLoginId(orgId, loginId)) {
             throw new BusinessException(ErrorCode.LOGIN_ID_DUPLICATE);
         }
     }

@@ -9,6 +9,9 @@ import java.util.Optional;
 public interface EvaluationQuestionRepository extends JpaRepository<EvaluationQuestion, Long> {
 
     List<EvaluationQuestion> findByTemplateIdAndActiveOrderBySortOrderAsc(Long templateId, boolean active);
+    List<EvaluationQuestion> findByTemplateIdAndActiveAndQuestionGroupCodeOrderBySortOrderAsc(Long templateId,
+                                                                                               boolean active,
+                                                                                               String questionGroupCode);
 
     List<EvaluationQuestion> findByTemplateIdOrderBySortOrderAsc(Long templateId);
 

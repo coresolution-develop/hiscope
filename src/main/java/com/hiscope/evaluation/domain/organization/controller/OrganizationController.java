@@ -80,7 +80,9 @@ public class OrganizationController {
         }
         var created = organizationService.create(request);
         auditLogger.success("ORG_CREATE", "ORGANIZATION", String.valueOf(created.getId()),
-                AuditDetail.of("name", created.getName(), "code", created.getCode(), "status", created.getStatus()));
+                AuditDetail.of("name", created.getName(), "code", created.getCode(), "status", created.getStatus(),
+                        "organizationType", created.getOrganizationType(),
+                        "organizationProfile", created.getOrganizationProfile()));
         ra.addFlashAttribute("successMessage", "기관이 생성되었습니다.");
         return "redirect:/super-admin/organizations";
     }

@@ -34,6 +34,7 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
 
             createDeptTemplate();
             createEmpTemplate();
+            createAffiliateEmpTemplate();
             createQuestionTemplate();
             log.info("=== 엑셀 업로드 템플릿 파일 생성 완료 ===");
         } catch (IOException e) {
@@ -72,8 +73,10 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             Row header = sheet.createRow(0);
             String[] cols = {
                     "사원번호(필수)", "이름(필수)", "부서코드(필수)", "직위", "직책", "이메일", "로그인ID(필수)", "상태(ACTIVE/INACTIVE/LEAVE)",
-                    "경혁팀(Y/N)", "경혁팀장(Y/N)", "부서장(Y/N)", "1인부서(Y/N)", "의료리더(Y/N)", "기관장(Y/N)", "소속장(Y/N)", "평가제외(Y/N)",
-                    "attr:clinical_track(선택)", "attr:peer_group(선택)"
+                    "기관장(Y/N)", "소속장(Y/N)", "부서장(Y/N)", "평가제외(Y/N)",
+                    "경혁팀(Y/N)", "경혁팀장(Y/N)", "1인부서(Y/N)", "진료팀장(Y/N)", "의료리더(Y/N)",
+                    "평가대상여부(검증용)", "이전부서명(보조)", "입사일자(보조)", "퇴사일자(보조)",
+                    "attr:clinical_track(선택)"
             };
             for (int i = 0; i < cols.length; i++) {
                 Cell cell = header.createCell(i);
@@ -90,16 +93,21 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             valid.createCell(5).setCellValue("hong@example.com");
             valid.createCell(6).setCellValue("hong99");
             valid.createCell(7).setCellValue("ACTIVE");
-            valid.createCell(8).setCellValue("Y");
-            valid.createCell(9).setCellValue("Y");
+            valid.createCell(8).setCellValue("N");
+            valid.createCell(9).setCellValue("N");
             valid.createCell(10).setCellValue("N");
             valid.createCell(11).setCellValue("N");
-            valid.createCell(12).setCellValue("N");
-            valid.createCell(13).setCellValue("N");
+            valid.createCell(12).setCellValue("Y");
+            valid.createCell(13).setCellValue("Y");
             valid.createCell(14).setCellValue("N");
             valid.createCell(15).setCellValue("N");
-            valid.createCell(16).setCellValue("수술계");
-            valid.createCell(17).setCellValue("A군");
+            valid.createCell(16).setCellValue("Y");
+            valid.createCell(17).setCellValue("Y");
+            valid.createCell(18).setCellValue("Y");
+            valid.createCell(19).setCellValue("원무팀");
+            valid.createCell(20).setCellValue("2023-01-02");
+            valid.createCell(21).setCellValue("");
+            valid.createCell(22).setCellValue("수술계");
 
             Row invalid = sheet.createRow(2);
             invalid.createCell(0).setCellValue("E100");
@@ -111,7 +119,7 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             invalid.createCell(6).setCellValue("bad id");
             invalid.createCell(7).setCellValue("WORKING");
             invalid.createCell(8).setCellValue("MAYBE");
-            invalid.createCell(16).setCellValue(" ");
+            invalid.createCell(22).setCellValue(" ");
 
             Sheet guide = wb.createSheet("가이드");
             guide.setColumnWidth(0, 9000);
@@ -131,9 +139,53 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             addGuideRow(guide, 3, "boolean 속성", "Y, N, true, false, 1, 0", "MAYBE", "병원형 boolean 속성은 Y/N 계열만 허용");
             addGuideRow(guide, 4, "독립 속성 원칙", "경혁팀=Y, 경혁팀장=Y, 부서장=N", "경혁팀장=Y 이므로 부서장=Y로 추론", "병원형 속성은 각각 독립 관리하며 상호 추론하지 않음");
             addGuideRow(guide, 5, "자유 속성 컬럼명", "attr:clinical_track", "clinical_track", "반드시 attr: 접두사 또는 속성: 접두사 사용");
-            addGuideRow(guide, 6, "자유 속성 값", "A군, 수술계", "(공백만 입력)", "공백만 입력 시 미입력으로 처리");
+            addGuideRow(guide, 6, "평가대상여부", "Y", "MAYBE", "v1에서는 검증용 컬럼으로만 사용");
+            addGuideRow(guide, 7, "이전부서명/입퇴사일자", "원무팀, 2023-01-02", "-", "v1에서는 보조 정보로만 사용");
+            addGuideRow(guide, 8, "자유 속성 값", "A군, 수술계", "(공백만 입력)", "공백만 입력 시 미입력으로 처리");
 
             try (FileOutputStream fos = new FileOutputStream(TEMPLATE_PATH + "emp_template.xlsx")) {
+                wb.write(fos);
+            }
+        }
+    }
+
+    private void createAffiliateEmpTemplate() throws IOException {
+        try (Workbook wb = ExcelUtils.createWorkbook()) {
+            Sheet sheet = wb.createSheet("직원");
+            CellStyle headerStyle = ExcelUtils.createHeaderStyle(wb);
+            Row header = sheet.createRow(0);
+            String[] cols = {
+                    "사원번호(필수)", "이름(필수)", "부서코드(필수)", "직위", "직책", "이메일", "로그인ID(필수)", "상태(ACTIVE/INACTIVE/LEAVE)",
+                    "기관장(Y/N)", "소속장(Y/N)", "부서장(Y/N)", "평가제외(Y/N)",
+                    "평가대상여부(검증용)", "입사일자(보조)", "퇴사일자(보조)", "비고(보조)",
+                    "attr:affiliate_policy_group(선택)"
+            };
+            for (int i = 0; i < cols.length; i++) {
+                Cell cell = header.createCell(i);
+                cell.setCellValue(cols[i]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, 6000);
+            }
+            Row valid = sheet.createRow(1);
+            valid.createCell(0).setCellValue("A001");
+            valid.createCell(1).setCellValue("김계열");
+            valid.createCell(2).setCellValue("ADMIN");
+            valid.createCell(3).setCellValue("차장");
+            valid.createCell(4).setCellValue("부서장");
+            valid.createCell(5).setCellValue("affiliate@example.com");
+            valid.createCell(6).setCellValue("aff01");
+            valid.createCell(7).setCellValue("ACTIVE");
+            valid.createCell(8).setCellValue("N");
+            valid.createCell(9).setCellValue("Y");
+            valid.createCell(10).setCellValue("Y");
+            valid.createCell(11).setCellValue("N");
+            valid.createCell(12).setCellValue("Y");
+            valid.createCell(13).setCellValue("2022-03-01");
+            valid.createCell(14).setCellValue("");
+            valid.createCell(15).setCellValue("신규법인");
+            valid.createCell(16).setCellValue("HQ");
+
+            try (FileOutputStream fos = new FileOutputStream(TEMPLATE_PATH + "emp_template_affiliate.xlsx")) {
                 wb.write(fos);
             }
         }
@@ -152,7 +204,7 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             Sheet sheet = wb.createSheet("평가문항");
             CellStyle headerStyle = ExcelUtils.createHeaderStyle(wb);
             Row header = sheet.createRow(0);
-            String[] cols = {"카테고리", "문항내용(필수)", "문항유형(SCALE/DESCRIPTIVE)(필수)", "최대점수(SCALE필수)", "정렬순서"};
+            String[] cols = {"카테고리", "문항내용(필수)", "문항유형(SCALE/DESCRIPTIVE)(필수)", "문항군코드(선택)", "최대점수(SCALE필수)", "정렬순서"};
             for (int i = 0; i < cols.length; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(cols[i]);
@@ -161,7 +213,7 @@ public class ExcelTemplateGenerator implements ApplicationRunner {
             }
             Row ex = sheet.createRow(1);
             ex.createCell(0).setCellValue("공통역량"); ex.createCell(1).setCellValue("업무 전문성을 평가해주세요.");
-            ex.createCell(2).setCellValue("SCALE"); ex.createCell(3).setCellValue("5"); ex.createCell(4).setCellValue("1");
+            ex.createCell(2).setCellValue("SCALE"); ex.createCell(3).setCellValue("AB"); ex.createCell(4).setCellValue("5"); ex.createCell(5).setCellValue("1");
 
             try (FileOutputStream fos = new FileOutputStream(TEMPLATE_PATH + "question_template.xlsx")) {
                 wb.write(fos);

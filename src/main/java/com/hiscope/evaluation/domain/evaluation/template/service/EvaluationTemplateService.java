@@ -107,7 +107,7 @@ public class EvaluationTemplateService {
     public EvaluationQuestion updateQuestion(Long orgId, Long questionId, QuestionRequest request) {
         SecurityUtils.checkOrgAccess(orgId);
         EvaluationQuestion q = getQuestionByOrgAndId(orgId, questionId);
-        q.update(request.getCategory(), request.getContent(), request.getQuestionType(),
+        q.update(request.getCategory(), request.getContent(), request.getQuestionType(), null,
                 request.getMaxScore(), request.getSortOrder());
         return q;
     }
@@ -145,6 +145,7 @@ public class EvaluationTemplateService {
                 .category(request.getCategory())
                 .content(request.getContent())
                 .questionType(request.getQuestionType())
+                .questionGroupCode(null)
                 .maxScore(request.getMaxScore())
                 .sortOrder(request.getSortOrder())
                 .active(true)

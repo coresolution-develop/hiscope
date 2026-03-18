@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6">
+<body>
+<th:block th:fragment="topbar">
+    <nav class="navbar pe-topbar sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand pe-brand" href="#">
+                <img src="/images/pe/core_logo2.png" alt="PE Brand" class="pe-brand-logo">
+            </a>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <span class="pe-user-meta">
+                    <i class="bi bi-person-circle me-1"></i>
+                    <sec:authentication property="name" />
+                </span>
+                <a href="/logout" class="pe-logout-btn">
+                    <img src="/images/pe/logout.png" alt="logout">
+                    <span>로그아웃</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+</th:block>
+
+<nav th:fragment="sidebar" class="col-lg-2 sidebar">
+    <div sec:authorize="hasRole('SUPER_ADMIN')">
+        <div class="nav-section">관리</div>
+        <a class="nav-link" data-nav-prefix="/super-admin/dashboard" href="/super-admin/dashboard"><i class="bi bi-speedometer2 me-2"></i>대시보드</a>
+        <a class="nav-link" data-nav-prefix="/super-admin/organizations" href="/super-admin/organizations"><i class="bi bi-building me-2"></i>기관 관리</a>
+        <a class="nav-link" data-nav-prefix="/super-admin/audit" href="/super-admin/audit"><i class="bi bi-journal-text me-2"></i>감사 로그</a>
+    </div>
+
+    <div sec:authorize="hasRole('ORG_ADMIN')">
+        <a class="nav-link" data-nav-prefix="/admin/dashboard" href="/admin/dashboard"><i class="bi bi-speedometer2 me-2"></i>대시보드</a>
+        <div class="nav-section mt-2">조직</div>
+        <a class="nav-link" data-nav-prefix="/admin/departments" href="/admin/departments"><i class="bi bi-diagram-3 me-2"></i>부서 관리</a>
+        <a class="nav-link" data-nav-prefix="/admin/employees" href="/admin/employees"><i class="bi bi-people me-2"></i>직원 관리</a>
+        <div class="nav-section mt-2">평가</div>
+        <a class="nav-link" data-nav-prefix="/admin/evaluation/templates" href="/admin/evaluation/templates"><i class="bi bi-file-text me-2"></i>평가 템플릿</a>
+        <a class="nav-link" data-nav-prefix="/admin/evaluation/sessions" href="/admin/evaluation/sessions"><i class="bi bi-calendar3 me-2"></i>평가 세션</a>
+        <a class="nav-link" data-nav-prefix="/admin/evaluation/results" href="/admin/evaluation/results"><i class="bi bi-clipboard-data me-2"></i>평가 결과</a>
+        <div class="nav-section mt-2">기타</div>
+        <a class="nav-link" data-nav-prefix="/admin/uploads/history" href="/admin/uploads/history"><i class="bi bi-upload me-2"></i>업로드 이력</a>
+        <a class="nav-link" data-nav-prefix="/admin/audit" href="/admin/audit"><i class="bi bi-journal-text me-2"></i>감사 로그</a>
+        <a class="nav-link" data-nav-prefix="/admin/settings" href="/admin/settings"><i class="bi bi-sliders me-2"></i>운영 설정</a>
+        <a class="nav-link" data-nav-prefix="/admin/settings/relationships" href="/admin/settings/relationships"><i class="bi bi-diagram-3 me-2"></i>관계 정의 설정</a>
+        <a class="nav-link" data-nav-prefix="/admin/settings/employee-attributes" href="/admin/settings/employee-attributes"><i class="bi bi-tags me-2"></i>직원 속성 관리</a>
+    </div>
+
+    <div sec:authorize="hasRole('USER')">
+        <div class="nav-section">평가</div>
+        <a class="nav-link" data-nav-prefix="/user/dashboard" href="/user/dashboard"><i class="bi bi-house me-2"></i>홈</a>
+        <a class="nav-link" data-nav-prefix="/user/evaluations" href="/user/evaluations"><i class="bi bi-pencil-square me-2"></i>나의 평가</a>
+        <a class="nav-link" data-nav-prefix="/user/mypage" href="/user/mypage"><i class="bi bi-person-badge me-2"></i>마이페이지</a>
+    </div>
+</nav>
+</body>
+</html>

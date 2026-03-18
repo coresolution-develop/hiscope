@@ -40,6 +40,9 @@ public class EvaluationAssignment extends BaseTimeEntity {
     @Builder.Default
     private String status = "PENDING";
 
+    @Column(name = "resolved_question_group_code", length = 30)
+    private String resolvedQuestionGroupCode;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 

@@ -41,7 +41,7 @@ public class AccountService {
 
     @Transactional
     public AccountResponse createOrgAdmin(AccountCreateRequest request) {
-        validateLoginIdUnique(request.getLoginId());
+        validateLoginIdUnique(request.getOrganizationId(), request.getLoginId());
         int minPasswordLength = organizationSettingService.resolvePasswordMinLength(request.getOrganizationId());
         validatePasswordPolicy(request.getPassword(), minPasswordLength);
 
@@ -85,9 +85,9 @@ public class AccountService {
         return temporaryPassword;
     }
 
-    private void validateLoginIdUnique(String loginId) {
-        if (accountRepository.existsByLoginId(loginId)
-                || userAccountRepository.existsByLoginId(loginId)) {
+    private void validateLoginIdUnique(Long orgId, String loginId) {
+        if (accountRepository.existsByOrganizationIdAndLoginId(orgId, loginId)
+                || userAccountRepository.existsByOrganizationIdAndLoginId(orgId, loginId)) {
             throw new BusinessException(ErrorCode.LOGIN_ID_DUPLICATE);
         }
     }

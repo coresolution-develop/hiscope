@@ -24,10 +24,12 @@ import com.hiscope.evaluation.domain.evaluation.rule.repository.RelationshipRule
 import com.hiscope.evaluation.domain.evaluation.rule.repository.SessionGeneratedRelationshipRepository;
 import com.hiscope.evaluation.domain.evaluation.rule.repository.SessionRelationshipOverrideRepository;
 import com.hiscope.evaluation.domain.evaluation.rule.service.RelationshipGenerationService;
+import com.hiscope.evaluation.domain.evaluation.rule.service.SessionRelationshipGenerationRunService;
 import com.hiscope.evaluation.domain.evaluation.session.entity.EvaluationSession;
 import com.hiscope.evaluation.domain.evaluation.session.repository.EvaluationSessionRepository;
 import com.hiscope.evaluation.domain.evaluation.session.service.EvaluationSessionService;
 import com.hiscope.evaluation.common.security.CustomUserDetails;
+import com.hiscope.evaluation.common.exception.BusinessException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 @SpringBootTest
@@ -86,6 +89,9 @@ class RuleBasedRelationshipGenerationIntegrationTest {
 
     @Autowired
     private EvaluationAssignmentRepository assignmentRepository;
+
+    @Autowired
+    private SessionRelationshipGenerationRunService generationRunService;
 
     @BeforeEach
     void setupAuthContext() {
@@ -208,6 +214,31 @@ class RuleBasedRelationshipGenerationIntegrationTest {
                 .map(id -> employeeRepository.findByOrganizationIdAndId(1L, id).orElseThrow())
                 .toList();
         assertThat(evaluators).allMatch(Employee::isTeamLeader);
+    }
+
+    @Test
+    void 진료팀장_attribute_matcher_기반_관계_생성_테스트() {
+        EmployeeAttribute clinicalTeamLeader = getOrCreateAttribute(1L, "clinical_team_leader", "진료팀장");
+        upsertEmployeeAttributeValue(1L, clinicalTeamLeader.getId(), "Y");
+        upsertEmployeeAttributeValue(2L, clinicalTeamLeader.getId(), "Y");
+        upsertEmployeeAttributeValue(3L, clinicalTeamLeader.getId(), "N");
+
+        RelationshipDefinitionSet set = createDefinitionSet(1L, "진료팀장속성세트");
+        createRuleWithMatchers(set.getId(), "clinical-leader-rule", RelationshipRuleType.CUSTOM, 10, List.of(
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "1,2,3"),
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.ATTRIBUTE, RelationshipRuleOperator.IN, "clinical_team_leader=Y"),
+                matcher(RelationshipSubjectType.EVALUATEE, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "4")
+        ));
+        EvaluationSession session = createRuleBasedSession(1L, set.getId(), "진료팀장속성세션");
+
+        relationshipGenerationService.generateForSession(1L, session.getId(), set.getId());
+
+        assertThat(generatedRelationshipRepository.findBySessionIdOrderByEvaluatorIdAscEvaluateeIdAsc(session.getId()))
+                .extracting("evaluatorId", "evaluateeId")
+                .containsExactlyInAnyOrder(
+                        tuple(1L, 4L),
+                        tuple(2L, 4L)
+                );
     }
 
     @Test
@@ -369,6 +400,125 @@ class RuleBasedRelationshipGenerationIntegrationTest {
                         tuple(1L, 3L),
                         tuple(2L, 4L)
                 );
+    }
+
+    @Test
+    void RULE_BASED_auto_generate_후_start_정상동작_테스트() {
+        RelationshipDefinitionSet set = createDefinitionSet(1L, "auto-generate-start");
+        createRuleWithMatchers(set.getId(), "auto-rule", RelationshipRuleType.CROSS_DEPT, 10, List.of(
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "1"),
+                matcher(RelationshipSubjectType.EVALUATEE, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "3")
+        ));
+        EvaluationSession ruleSession = createRuleBasedSession(1L, set.getId(), "auto-generate-start-session");
+        var summary = relationshipGenerationService.generateForSession(1L, ruleSession.getId(), set.getId());
+        generationRunService.recordSuccess(
+                1L,
+                ruleSession.getId(),
+                RelationshipGenerationMode.RULE_BASED,
+                summary,
+                0L,
+                summary.finalRelationshipCount()
+        );
+        long generatedBeforeStart = generatedRelationshipRepository.countBySessionId(ruleSession.getId());
+
+        sessionService.start(1L, ruleSession.getId());
+
+        assertThat(generatedRelationshipRepository.countBySessionId(ruleSession.getId())).isEqualTo(generatedBeforeStart);
+        assertThat(relationshipRepository.findBySessionIdOrderByRelationTypeAscEvaluatorIdAsc(ruleSession.getId())).hasSize(1);
+        assertThat(assignmentRepository.findBySessionId(ruleSession.getId())).hasSize(1);
+    }
+
+    @Test
+    void RULE_BASED_auto_generate_없이_start_정상동작_테스트() {
+        RelationshipDefinitionSet set = createDefinitionSet(1L, "start-direct");
+        createRuleWithMatchers(set.getId(), "direct-rule", RelationshipRuleType.CROSS_DEPT, 10, List.of(
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "1"),
+                matcher(RelationshipSubjectType.EVALUATEE, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "3")
+        ));
+        EvaluationSession ruleSession = createRuleBasedSession(1L, set.getId(), "start-direct-session");
+
+        sessionService.start(1L, ruleSession.getId());
+
+        assertThat(generatedRelationshipRepository.findBySessionIdOrderByEvaluatorIdAscEvaluateeIdAsc(ruleSession.getId())).hasSize(1);
+        assertThat(relationshipRepository.findBySessionIdOrderByRelationTypeAscEvaluatorIdAsc(ruleSession.getId())).hasSize(1);
+        assertThat(assignmentRepository.findBySessionId(ruleSession.getId())).hasSize(1);
+    }
+
+    @Test
+    void RULE_BASED_override_적용후_start_정상동작_테스트() {
+        RelationshipDefinitionSet set = createDefinitionSet(1L, "override-start");
+        createRuleWithMatchers(set.getId(), "base-rule", RelationshipRuleType.CROSS_DEPT, 10, List.of(
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "1"),
+                matcher(RelationshipSubjectType.EVALUATEE, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "3")
+        ));
+        EvaluationSession ruleSession = createRuleBasedSession(1L, set.getId(), "override-start-session");
+        var summary = relationshipGenerationService.generateForSession(1L, ruleSession.getId(), set.getId());
+        generationRunService.recordSuccess(
+                1L,
+                ruleSession.getId(),
+                RelationshipGenerationMode.RULE_BASED,
+                summary,
+                0L,
+                summary.finalRelationshipCount()
+        );
+        overrideRepository.save(SessionRelationshipOverride.builder()
+                .sessionId(ruleSession.getId())
+                .organizationId(1L)
+                .evaluatorId(1L)
+                .evaluateeId(3L)
+                .action(SessionRelationshipOverrideAction.REMOVE)
+                .reason("기본 제외")
+                .createdBy(2L)
+                .build());
+        overrideRepository.save(SessionRelationshipOverride.builder()
+                .sessionId(ruleSession.getId())
+                .organizationId(1L)
+                .evaluatorId(2L)
+                .evaluateeId(4L)
+                .action(SessionRelationshipOverrideAction.ADD)
+                .reason("수동 추가")
+                .createdBy(2L)
+                .build());
+
+        sessionService.start(1L, ruleSession.getId());
+
+        assertThat(relationshipRepository.findBySessionIdOrderByRelationTypeAscEvaluatorIdAsc(ruleSession.getId()))
+                .extracting("evaluatorId", "evaluateeId")
+                .containsExactly(tuple(2L, 4L));
+        assertThat(assignmentRepository.findBySessionId(ruleSession.getId())).hasSize(1);
+    }
+
+    @Test
+    void RULE_BASED_generate_반복호출_중복삽입_없음_테스트() {
+        RelationshipDefinitionSet set = createDefinitionSet(1L, "repeat-generate");
+        createRuleWithMatchers(set.getId(), "repeat-rule", RelationshipRuleType.CROSS_DEPT, 10, List.of(
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "1"),
+                matcher(RelationshipSubjectType.EVALUATEE, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "3")
+        ));
+        EvaluationSession session = createRuleBasedSession(1L, set.getId(), "repeat-generate-session");
+
+        relationshipGenerationService.generateForSession(1L, session.getId(), set.getId());
+        relationshipGenerationService.generateForSession(1L, session.getId(), set.getId());
+
+        assertThat(generatedRelationshipRepository.findBySessionIdOrderByEvaluatorIdAscEvaluateeIdAsc(session.getId()))
+                .extracting("evaluatorId", "evaluateeId")
+                .containsExactly(tuple(1L, 3L));
+    }
+
+    @Test
+    void start_재호출_방어_테스트() {
+        RelationshipDefinitionSet set = createDefinitionSet(1L, "start-guard");
+        createRuleWithMatchers(set.getId(), "guard-rule", RelationshipRuleType.CROSS_DEPT, 10, List.of(
+                matcher(RelationshipSubjectType.EVALUATOR, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "1"),
+                matcher(RelationshipSubjectType.EVALUATEE, RelationshipMatcherType.EMPLOYEE, RelationshipRuleOperator.IN, "3")
+        ));
+        EvaluationSession ruleSession = createRuleBasedSession(1L, set.getId(), "start-guard-session");
+
+        sessionService.start(1L, ruleSession.getId());
+
+        assertThatThrownBy(() -> sessionService.start(1L, ruleSession.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("대기 상태에서만 시작 가능합니다.");
     }
 
     private RelationshipDefinitionSet createDefinitionSet(Long orgId, String name) {

@@ -14,6 +14,10 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     boolean existsByLoginId(String loginId);
 
+    Optional<UserAccount> findByOrganizationIdAndLoginId(Long organizationId, String loginId);
+
+    boolean existsByOrganizationIdAndLoginId(Long organizationId, String loginId);
+
     Optional<UserAccount> findByEmployeeId(Long employeeId);
     List<UserAccount> findByEmployeeIdIn(List<Long> employeeIds);
 
@@ -36,4 +40,13 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     @Query("SELECT ua FROM UserAccount ua JOIN FETCH ua.employee e " +
            "WHERE ua.loginId = :loginId AND e.status = 'ACTIVE'")
     Optional<UserAccount> findByLoginIdAndEmployeeActive(@Param("loginId") String loginId);
+
+    @Query("SELECT ua FROM UserAccount ua JOIN FETCH ua.employee e " +
+            "WHERE ua.organizationId = :orgId AND ua.loginId = :loginId AND e.status = 'ACTIVE'")
+    Optional<UserAccount> findByOrganizationIdAndLoginIdAndEmployeeActive(@Param("orgId") Long orgId,
+                                                                           @Param("loginId") String loginId);
+
+    @Query("SELECT ua FROM UserAccount ua JOIN FETCH ua.employee e " +
+            "WHERE ua.loginId = :loginId AND e.status = 'ACTIVE'")
+    List<UserAccount> findAllByLoginIdAndEmployeeActive(@Param("loginId") String loginId);
 }

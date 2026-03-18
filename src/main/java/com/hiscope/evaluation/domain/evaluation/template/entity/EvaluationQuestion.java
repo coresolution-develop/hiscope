@@ -32,6 +32,9 @@ public class EvaluationQuestion extends BaseTimeEntity {
     @Column(name = "question_type", nullable = false, length = 20)
     private String questionType;
 
+    @Column(name = "question_group_code", length = 30)
+    private String questionGroupCode;
+
     @Column(name = "max_score")
     private Integer maxScore;
 
@@ -44,10 +47,11 @@ public class EvaluationQuestion extends BaseTimeEntity {
     private boolean active = true;
 
     public void update(String category, String content, String questionType,
-                       Integer maxScore, int sortOrder) {
+                       String questionGroupCode, Integer maxScore, int sortOrder) {
         this.category = category;
         this.content = content;
         this.questionType = questionType;
+        this.questionGroupCode = questionGroupCode;
         this.maxScore = maxScore;
         this.sortOrder = sortOrder;
     }

@@ -6,6 +6,8 @@ import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.security.SecurityUtils;
 import com.hiscope.evaluation.domain.upload.dto.UploadResult;
+import com.hiscope.evaluation.domain.upload.dto.EmployeeUploadPreview;
+import com.hiscope.evaluation.domain.organization.service.OrganizationService;
 import com.hiscope.evaluation.domain.upload.service.UploadService;
 import com.hiscope.evaluation.domain.upload.service.UploadTemplateService;
 import com.hiscope.evaluation.domain.upload.service.UploadValidationService;
@@ -35,6 +37,7 @@ public class UploadController {
     private final UploadService uploadService;
     private final UploadValidationService uploadValidationService;
     private final UploadTemplateService uploadTemplateService;
+    private final OrganizationService organizationService;
     private final AuditLogger auditLogger;
 
     @Value("${app.operations.upload-history-view-limit:1000}")
@@ -144,6 +147,24 @@ public class UploadController {
         return "redirect:/admin/employees";
     }
 
+    @PostMapping("/employees/preview")
+    public String previewEmployees(@RequestParam MultipartFile file, RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            uploadValidationService.validateExcelFile(file);
+            EmployeeUploadPreview preview = uploadService.previewEmployees(orgId, file);
+            ra.addFlashAttribute("employeeUploadPreview", preview);
+            if (!preview.isUploadable()) {
+                ra.addFlashAttribute("errorMessage", "업로드가 불가능한 파일입니다. 미리보기 결과를 확인해주세요.");
+            }
+        } catch (BusinessException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", "직원 업로드 미리보기 처리 중 오류가 발생했습니다.");
+        }
+        return "redirect:/admin/employees";
+    }
+
     @GetMapping("/template/departments")
     public ResponseEntity<Resource> downloadDeptTemplate() {
         return downloadTemplate(uploadTemplateService.loadDepartmentTemplate(), "부서_업로드_템플릿.xlsx", "DEPARTMENT");
@@ -151,7 +172,24 @@ public class UploadController {
 
     @GetMapping("/template/employees")
     public ResponseEntity<Resource> downloadEmpTemplate() {
-        return downloadTemplate(uploadTemplateService.loadEmployeeTemplate(), "직원_업로드_템플릿.xlsx", "EMPLOYEE");
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        var org = organizationService.getOrganization(orgId);
+        var orgType = org.getOrganizationType();
+        var orgProfile = org.getOrganizationProfile();
+        String filename = (orgType.name() + "_" + orgProfile.name()).toLowerCase() + "_직원_업로드_템플릿.xlsx";
+        return downloadTemplate(uploadTemplateService.loadEmployeeTemplateByType(orgType), filename, "EMPLOYEE");
+    }
+
+    @GetMapping("/template/employees/hospital")
+    public ResponseEntity<Resource> downloadHospitalEmpTemplate() {
+        return downloadTemplate(uploadTemplateService.loadEmployeeHospitalTemplate(),
+                "hospital_직원_업로드_템플릿.xlsx", "EMPLOYEE_HOSPITAL");
+    }
+
+    @GetMapping("/template/employees/affiliate")
+    public ResponseEntity<Resource> downloadAffiliateEmpTemplate() {
+        return downloadTemplate(uploadTemplateService.loadEmployeeAffiliateTemplate(),
+                "affiliate_직원_업로드_템플릿.xlsx", "EMPLOYEE_AFFILIATE");
     }
 
     @GetMapping("/template/questions")

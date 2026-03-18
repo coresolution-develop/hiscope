@@ -1,0 +1,129 @@
+@charset "UTF-8";
+@import url('https://hangeul.pstatic.net/hangeul_static/css/nanum-square-neo.css');
+
+/* 1) 레이아웃 */
+:root { --nav-w: 240px; }
+
+.nav_section{
+  width: var(--nav-w);
+  background:#2f425a; color:#c3c3c3 !important;
+  position:fixed; height:100%;
+  font-size:18px;
+  transition:width .3s ease;
+  overflow:visible !important; /* 드롭다운이 잘리지 않도록 */
+  z-index:1000;
+  top: 62px;
+}
+.main-content{
+  margin-left:var(--nav-w);
+  margin-top:62px;
+  background:#f7f7f7;
+  min-height:calc(100vh - 62px);
+  padding:0;
+  transition:margin-left .3s ease;
+  padding: 10px;    
+  height: calc(100vh - 62px);
+}
+.main-inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 20px;
+}
+/* 접힘 룩 */
+html[data-collapsed="true"] .nav_section span{ display:none; }
+html[data-collapsed="true"] .nav_section .nav_link,
+html[data-collapsed="true"] .nav_section .nav_sub_link{ justify-content:center; padding:15px 0; }
+html[data-collapsed="true"] .nav_section .icon-image{ margin-right:0; }
+html[data-collapsed="true"] .nav_section .nav_sub_link[data-group]{ display:none !important; }
+
+/* 첫 페인트 전환 제거 */
+html[data-first-paint] .nav_section,
+html[data-first-paint] .main-content{ transition:none !important; }
+
+/* 2) 아이템 */
+.nav_section ul{ list-style:none; padding:0; margin:0; }
+.nav_link, .nav_sub_link{ display:flex; align-items:center; cursor:pointer; color:#c3c3c3; }
+.nav_link{ padding:20px; font-size:16px; text-align:center; }
+.nav_sub_link{ padding:10px 20px; font-size:14px; }
+.nav_link:hover, .nav_sub_link:hover{ background:#1b304a; color:#fff !important; }
+.active{ border-left:4px solid #00bec2; background:#293a4f; color:#fff !important; }
+.nav_link .icon-image, .nav_sub_link .icon-image{ height:20px; margin-right:10px; }
+
+/* 3) 커스텀 셀렉트 (연도) */
+.select{ display:inline-block; width:100%; border:1px solid #999; position:relative; z-index:1001; background:#2f425a; }
+.select .selected{ display:flex; align-items:center; padding:8px 5px; }
+.select .selected::before{ content:''; width:24px; }
+.select .selected .selected-value{ flex:1; text-align:center; color:#fff; }
+.select .selected .arrow{
+  width:24px; height:10px;
+  background:url("../icon/arrow(down).png") no-repeat 70% 50%;
+  background-size:50% 50%;
+}
+.select ul, .select .selected .selected-value, .select ul li{
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.select ul{
+  width:200px; position:absolute; display:none; left:0;
+  margin:1px 0 0 -1px; border:1px solid #999; border-top:none;
+  background:#fff; color:#888; cursor:pointer;
+  z-index:2000; box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.select.active{ padding:0 !important; }
+.select.active ul{ display:initial; }
+.select ul li{ padding:8px 5px; }
+.select ul li:hover{ background:rgba(168,156,235,.35); }
+
+/* 접힘 상태에서 연도 셀렉트 보기 좋게 */
+html[data-collapsed="true"] .select{ width:64px; }
+html[data-collapsed="true"] .select .selected{ padding:8px 6px; }
+html[data-collapsed="true"] .select .selected::before{ display:none; }
+html[data-collapsed="true"] .select .selected .arrow{ display:none; }
+html[data-collapsed="true"] .select .selected .selected-value{
+  white-space:nowrap; overflow:visible; text-overflow:clip;
+  font-size:13px; font-weight:700; text-align:center; letter-spacing:0;
+}
+/* 접힘 시 드롭다운을 오른쪽으로 띄워 겹침 방지 */
+html[data-collapsed="true"] .select.active ul{ left:64px; top:calc(100% - 32px); }
+
+/* 4) 하위 메뉴 표기 규칙 */
+.nav_sub_link[data-group]{ display:none; }
+.nav_sub_link[data-group].is-visible{ display:flex; }
+
+/* 5) 플라이아웃 */
+#nav-flyout{
+  position:fixed; top:0; left:0; width:240px; max-height:70vh;
+  overflow-y:auto; background:#2f425a; border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+  display:none; z-index:1002; padding:6px 0;
+}
+#nav-flyout .flyout-item{
+  display:flex; align-items:center; padding:10px 14px;
+  font-size:14px; color:#c3c3c3; cursor:pointer;
+}
+#nav-flyout .flyout-item:hover{ background:#1b304a; color:#fff; }
+#nav-flyout .flyout-item img.icon-image{ height:20px; margin-right:10px; }
+#nav-flyout .flyout-item.active{ border-left:4px solid #00bec2; background:#293a4f; color:#fff; }
+
+/* 6) 토글 버튼 */
+.sidebar-toggle{
+  position:absolute; top:0; right:-35px;
+  width:30px; height:30px;
+  display:flex; align-items:center; cursor:pointer;
+  height:30px; color:#fff; z-index:999;
+}
+/* 아이콘 공통 크기 */
+.sidebar-toggle .icon{ width:24px; height:24px; }
+
+/* (선택) 호버/포커스 */
+.sidebar-toggle:hover { opacity:.9; }
+.sidebar-toggle:focus { outline:2px solid rgba(255,255,255,.6); outline-offset:2px; border-radius:6px; }
+
+/* 상태별 표출 전환 */
+html[data-collapsed="true"] .sidebar-toggle .menu{ display:block; }
+html[data-collapsed="true"] .sidebar-toggle .menu-open{ display:none; }
+
+html:not([data-collapsed="true"]) .sidebar-toggle .menu{ display:none; }
+html:not([data-collapsed="true"]) .sidebar-toggle .menu-open{ display:block; }
+
+/* 선택: hover 살짝 강조 */
+.sidebar-toggle:hover{ opacity:.9; }

@@ -42,6 +42,7 @@ public class DepartmentUploadHandler {
 
         try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
+            DepartmentImportProfile profile = detectProfile(sheet);
             // 기존 부서 코드 맵
             Map<String, Department> existingByCode = new HashMap<>();
             departmentRepository.findByOrganizationIdOrderByNameAsc(orgId)
@@ -50,15 +51,17 @@ public class DepartmentUploadHandler {
             // 이번 업로드에서 추가된 코드 (중복 체크용)
             Set<String> uploadedCodes = new HashSet<>();
 
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            for (int i = profile.dataStartRowIndex(); i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (ExcelUtils.isRowEmpty(row, 2)) continue;
+                if (ExcelUtils.isRowEmpty(row, profile.maxColumnIndex())) continue;
                 totalRows++;
                 validateMaxRows(orgId, totalRows);
 
-                String code = ExcelUtils.getCellString(row, 0).toUpperCase();
-                String name = ExcelUtils.getCellString(row, 1);
-                String parentCode = ExcelUtils.getCellString(row, 2).toUpperCase();
+                String code = ExcelUtils.getCellString(row, profile.codeColumnIndex()).toUpperCase();
+                String name = ExcelUtils.getCellString(row, profile.nameColumnIndex());
+                String parentCode = profile.parentCodeColumnIndex() >= 0
+                        ? ExcelUtils.getCellString(row, profile.parentCodeColumnIndex()).toUpperCase()
+                        : "";
 
                 // --- 검증 ---
                 if (code.isBlank()) {
@@ -120,5 +123,45 @@ public class DepartmentUploadHandler {
                     "업로드 가능한 최대 행 수(" + maxRows + "행)를 초과했습니다."
             );
         }
+    }
+
+    private DepartmentImportProfile detectProfile(Sheet sheet) {
+        for (int i = 0; i <= Math.min(10, sheet.getLastRowNum()); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) {
+                continue;
+            }
+            Map<String, Integer> header = headerMap(row);
+            if (header.containsKey("부서코드") && header.containsKey("부서명")) {
+                return new DepartmentImportProfile(
+                        i + 1,
+                        header.get("부서코드"),
+                        header.get("부서명"),
+                        header.getOrDefault("상위부서코드", -1),
+                        Math.max(header.get("부서코드"), Math.max(header.get("부서명"), header.getOrDefault("상위부서코드", 0)))
+                );
+            }
+        }
+        // 기본 템플릿(A:부서코드, B:부서명, C:상위부서코드)
+        return new DepartmentImportProfile(1, 0, 1, 2, 2);
+    }
+
+    private Map<String, Integer> headerMap(Row row) {
+        Map<String, Integer> map = new HashMap<>();
+        int last = Math.max(0, row.getLastCellNum() - 1);
+        for (int i = 0; i <= last; i++) {
+            String value = ExcelUtils.getCellString(row, i).trim();
+            if (!value.isBlank()) {
+                map.put(value, i);
+            }
+        }
+        return map;
+    }
+
+    private record DepartmentImportProfile(int dataStartRowIndex,
+                                           int codeColumnIndex,
+                                           int nameColumnIndex,
+                                           int parentCodeColumnIndex,
+                                           int maxColumnIndex) {
     }
 }

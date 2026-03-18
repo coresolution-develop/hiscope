@@ -112,6 +112,7 @@ class RuleBasedOperationalReadinessIntegrationTest {
                     .toList();
             assertThat(headerValues).anyMatch(v -> v.contains("경혁팀"));
             assertThat(headerValues).anyMatch(v -> v.contains("경혁팀장"));
+            assertThat(headerValues).anyMatch(v -> v.contains("진료팀장"));
             assertThat(headerValues).anyMatch(v -> v.contains("평가제외"));
             assertThat(headerValues).anyMatch(v -> v.contains("attr:clinical_track"));
             assertThat(workbook.getSheet("가이드")).isNotNull();
@@ -151,7 +152,7 @@ class RuleBasedOperationalReadinessIntegrationTest {
 
         var attrs = employeeAttributeRepository.findByOrganizationIdOrderByAttributeNameAsc(1L);
         assertThat(attrs.stream().map(a -> a.getAttributeKey()))
-                .contains("change_innovation_team", "evaluation_excluded");
+                .contains("change_innovation_team", "clinical_team_leader", "evaluation_excluded");
 
         var values = employeeAttributeValueRepository.findByEmployeeIdOrderByAttributeIdAscValueTextAsc(employee.getId());
         assertThat(values).hasSizeGreaterThanOrEqualTo(2);
@@ -422,7 +423,8 @@ class RuleBasedOperationalReadinessIntegrationTest {
             header.createCell(6).setCellValue("로그인ID");
             header.createCell(7).setCellValue("상태");
             header.createCell(8).setCellValue("경혁팀");
-            header.createCell(9).setCellValue("평가제외");
+            header.createCell(9).setCellValue("진료팀장");
+            header.createCell(10).setCellValue("평가제외");
 
             Row row = sheet.createRow(1);
             row.createCell(0).setCellValue(employeeNumber);
@@ -434,7 +436,8 @@ class RuleBasedOperationalReadinessIntegrationTest {
             row.createCell(6).setCellValue(loginId);
             row.createCell(7).setCellValue("ACTIVE");
             row.createCell(8).setCellValue("Y");
-            row.createCell(9).setCellValue("N");
+            row.createCell(9).setCellValue("Y");
+            row.createCell(10).setCellValue("N");
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             workbook.write(baos);

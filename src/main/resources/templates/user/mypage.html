@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head><title>마이페이지</title></head>
+<th:block th:fragment="headExtra">
+    <link rel="stylesheet" href="/css/user-mypage.css">
+</th:block>
+<th:block th:fragment="content">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-person-badge me-2 text-primary"></i>개인 마이페이지</h4>
+    <span class="badge bg-secondary">평가 데이터 기반 요약</span>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="small text-muted mb-3">기준: 내가 받은 평가 결과 · 비교: 동일 세션의 조직 최종제출 평균</p>
+        <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center">
+            <div>
+                <h5 class="mb-1" th:text="${myPage.profile.name}">이름</h5>
+                <div class="text-muted small">
+                    <span th:text="${myPage.profile.departmentName}">부서</span>
+                    <span class="mx-1">/</span>
+                    <span th:text="${myPage.profile.position} ?: '-'">직위</span>
+                    <span class="mx-1">/</span>
+                    <span th:text="${myPage.profile.jobTitle} ?: '-'">직책</span>
+                </div>
+            </div>
+            <div class="text-muted small">
+                사번 <strong th:text="${myPage.profile.employeeNumber} ?: '-'">-</strong>
+            </div>
+        </div>
+
+        <div class="summary-cards mt-3">
+            <div class="summary-card">
+                <div class="label">내 종합 점수</div>
+                <div class="value" th:text="${myPage.summary.myOverall}">0</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">전체 평균</div>
+                <div class="value" th:text="${myPage.summary.orgOverall}">0</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">평균 대비 차이</div>
+                <div class="value" th:text="${myPage.summary.gap}">0</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">평가/코멘트 항목</div>
+                <div class="value" th:text="${myPage.summary.totalReceivedEvaluations + ' / ' + myPage.summary.totalCommentItems}">0 / 0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header fw-semibold">AI 요약</div>
+    <div class="card-body">
+        <p class="small text-muted mb-3">자동 분석된 결과를 참고용으로 제공합니다.</p>
+        <div class="ai-box">
+            <div class="ai-item">
+                <h6>강점</h6>
+                <ul>
+                    <li th:each="s : ${myPage.aiSummary.strengths}" th:text="${s}">강점 문장</li>
+                </ul>
+            </div>
+            <div class="ai-item">
+                <h6>보완점</h6>
+                <ul>
+                    <li th:each="w : ${myPage.aiSummary.improvements}" th:text="${w}">보완점 문장</li>
+                </ul>
+            </div>
+            <div class="ai-item">
+                <h6>종합 코멘트</h6>
+                <p class="mb-0 small" th:text="${myPage.aiSummary.overallComment}">종합 코멘트</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3" th:if="${#lists.isEmpty(myPage.evaluations)}">
+    <div class="card-body text-center py-4">
+        <div class="fw-semibold mb-2">아직 받은 평가 결과가 없습니다.</div>
+        <p class="text-muted small mb-0">평가 제출이 완료되면 요약/그래프/세부 점수가 자동으로 표시됩니다.</p>
+    </div>
+</div>
+
+<div class="mypage-grid mb-3">
+    <div class="card">
+        <div class="card-header fw-semibold">영역별 점수 비교 (레이더)</div>
+        <div class="card-body">
+            <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header fw-semibold">항목별 평균 대비 차이 (막대)</div>
+        <div class="card-body">
+            <div class="chart-wrap"><canvas id="deltaChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header fw-semibold">평가 결과 요약</div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover table-smx">
+            <thead>
+            <tr>
+                <th>세션</th>
+                <th>평가자</th>
+                <th>제출일시</th>
+                <th>평균점수</th>
+                <th>코멘트</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="ev : ${myPage.evaluations}">
+                <td th:text="${ev.sessionName}">세션명</td>
+                <td th:text="${ev.evaluatorName}">평가자</td>
+                <td th:text="${ev.submittedAt != null ? #temporals.format(ev.submittedAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+                <td th:text="${ev.averageScore != null ? ev.averageScore : '-'}">-</td>
+                <td th:text="${ev.commentPreview}">코멘트</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(myPage.evaluations)}">
+                <td colspan="5" class="text-center text-muted py-3">표시할 평가 결과가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">세부 점수 목록</div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover table-smx">
+            <thead>
+            <tr>
+                <th>영역</th>
+                <th>문항</th>
+                <th>내 평균</th>
+                <th>전체 평균</th>
+                <th>차이</th>
+                <th>응답 수</th>
+                <th>코멘트</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row : ${myPage.questionScores}">
+                <td th:text="${row.category}">영역</td>
+                <td th:text="${row.question}">문항</td>
+                <td th:text="${row.myAverage}">0</td>
+                <td th:text="${row.orgAverage}">0</td>
+                <td th:text="${row.delta}"
+                    th:classappend="${row.delta != null and row.delta > 0} ? ' delta-pos' : (${row.delta != null and row.delta < 0} ? ' delta-neg' : '')">0</td>
+                <td th:text="${row.responseCount}">0</td>
+                <td th:text="${#strings.isEmpty(row.comments) ? '-' : row.comments}">-</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(myPage.questionScores)}">
+                <td colspan="7" class="text-center text-muted py-3">세부 점수 데이터가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</th:block>
+
+<th:block th:fragment="scripts">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script th:inline="javascript">
+const rawCategoryRows = /*[[${myPage.categoryScores}]]*/ [];
+const rawQuestionRows = /*[[${myPage.questionScores}]]*/ [];
+const categoryRows = Array.isArray(rawCategoryRows) ? rawCategoryRows : [];
+const questionRows = Array.isArray(rawQuestionRows) ? rawQuestionRows : [];
+
+const radarLabels = categoryRows.map(row => row?.category ?? '기타');
+const radarMine = categoryRows.map(row => Number.isFinite(Number(row?.myAverage)) ? Number(row.myAverage) : 0);
+const radarOrg = categoryRows.map(row => Number.isFinite(Number(row?.orgAverage)) ? Number(row.orgAverage) : 0);
+
+if (radarLabels.length) {
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: radarLabels,
+      datasets: [
+        {
+          label: '내 점수',
+          data: radarMine,
+          borderColor: '#1b304a',
+          backgroundColor: 'rgba(27, 48, 74, 0.12)',
+          borderWidth: 2
+        },
+        {
+          label: '전체 평균',
+          data: radarOrg,
+          borderColor: '#00bec2',
+          backgroundColor: 'rgba(0, 190, 194, 0.12)',
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { r: { ticks: { backdropColor: 'transparent' } } }
+    }
+  });
+}
+
+const topDiff = questionRows
+  .filter(row => Number.isFinite(Number(row?.delta)))
+  .sort((a, b) => Math.abs(Number(b.delta)) - Math.abs(Number(a.delta)))
+  .slice(0, 8);
+
+if (topDiff.length) {
+  new Chart(document.getElementById('deltaChart'), {
+    type: 'bar',
+    data: {
+      labels: topDiff.map(row => {
+        const question = typeof row?.question === 'string' && row.question.trim().length > 0 ? row.question.trim() : '문항';
+        return question.length > 18 ? question.substring(0, 18) + '...' : question;
+      }),
+      datasets: [{
+        label: '평균 대비 차이',
+        data: topDiff.map(row => Number(row.delta)),
+        backgroundColor: topDiff.map(row => Number(row.delta) >= 0 ? 'rgba(25, 135, 84, .7)' : 'rgba(220, 53, 69, .7)'),
+        borderColor: topDiff.map(row => Number(row.delta) >= 0 ? 'rgba(25, 135, 84, 1)' : 'rgba(220, 53, 69, 1)'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } }
+    }
+  });
+}
+</script>
+</th:block>
+</html>
