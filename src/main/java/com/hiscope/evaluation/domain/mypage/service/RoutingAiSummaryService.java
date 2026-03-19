@@ -26,7 +26,7 @@ public class RoutingAiSummaryService implements AiSummaryService {
                                           double myOverall,
                                           double orgOverall,
                                           int commentCount) {
-        if (properties.getProvider() != OpenAiSummaryProperties.Provider.OPENAI) {
+        if (properties.getProvider() != OpenAiSummaryProperties.Provider.OPENAI || !properties.isEnabled()) {
             return heuristicSummaryService.summarize(categories, myOverall, orgOverall, commentCount);
         }
 
@@ -44,10 +44,10 @@ public class RoutingAiSummaryService implements AiSummaryService {
 
     @Override
     public String mode() {
-        if (properties.getProvider() != OpenAiSummaryProperties.Provider.OPENAI) {
+        if (properties.getProvider() != OpenAiSummaryProperties.Provider.OPENAI || !properties.isEnabled()) {
             return heuristicSummaryService.mode();
         }
-        return properties.isEnabled() ? openAiSummaryService.mode() : "OPENAI_DISABLED";
+        return openAiSummaryService.mode();
     }
 
     private MyPageView.AiSummary unavailableSummary() {

@@ -84,7 +84,18 @@ docker compose -f docker-compose.prod.yml up -d --build
   - `APP_BOOTSTRAP_SUPER_ADMIN_PASSWORD`
 - 계정 생성 후 반드시 비활성화 또는 비밀번호 변경
 
-## 6. 운영 체크리스트
+## 6. 마이페이지 AI 요약(OpenAI) 환경변수
+
+- `MYPAGE_AI_PROVIDER` (기본: `HEURISTIC`, OpenAI 사용 시 `OPENAI`)
+- `MYPAGE_AI_ENABLED` (기본: `false`)
+- `MYPAGE_AI_FALLBACK_TO_HEURISTIC` (기본: `true`)
+- `OPENAI_API_KEY` (OpenAI 사용 시 필수)
+- `OPENAI_MODEL` (기본: `gpt-5-mini`)
+- `OPENAI_BASE_URL` (기본: `https://api.openai.com/v1`)
+- `OPENAI_TIMEOUT` (기본: `10s`)
+- `OPENAI_MAX_RETRIES` (기본: `1`)
+
+## 7. 운영 체크리스트
 
 - DB 백업/복구 시나리오 점검
 - 로그 저장 경로/보관 정책 점검(`LOG_DIR`)
@@ -92,7 +103,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - 관리자 계정 비밀번호 정책 및 주기적 변경
 - 감사 로그(`audit_logs`) 정기 점검
 
-## 7. 관리자 운영 가이드
+## 8. 관리자 운영 가이드
 
 관리자 실제 사용 흐름은 아래 문서 참고:
 

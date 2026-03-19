@@ -48,6 +48,6 @@ public class HeuristicAiSummaryService implements AiSummaryService {
 
     @Override
     public String mode() {
-        return "TEMP_HEURISTIC";
+        return "HEURISTIC";
     }
 }

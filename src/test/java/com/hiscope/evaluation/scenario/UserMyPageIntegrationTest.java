@@ -1,5 +1,6 @@
 package com.hiscope.evaluation.scenario;
 
+import com.hiscope.evaluation.config.properties.OpenAiSummaryProperties;
 import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
 import com.hiscope.evaluation.domain.employee.entity.Employee;
@@ -57,6 +58,7 @@ class UserMyPageIntegrationTest {
     @Autowired private EvaluationAssignmentRepository assignmentRepository;
     @Autowired private EvaluationResponseRepository responseRepository;
     @Autowired private EvaluationResponseItemRepository responseItemRepository;
+    @Autowired private OpenAiSummaryProperties openAiSummaryProperties;
 
     @Test
     void 마이페이지_데이터없음_화면_및_문구_검증() throws Exception {
@@ -74,7 +76,9 @@ class UserMyPageIntegrationTest {
 
         assertThat(html).contains("아직 받은 평가 결과가 없습니다.");
         assertThat(html).contains("평가 데이터 기반 요약");
+        assertThat(html).contains("AI 요약");
         assertThat(html).doesNotContain("TEMP_HEURISTIC");
+        assertThat(html).doesNotContain("OPENAI_PREPARED");
         assertThat(html).contains("Array.isArray(rawCategoryRows)");
     }
 
@@ -211,6 +215,87 @@ class UserMyPageIntegrationTest {
         assertThat(html).contains("보완점");
         assertThat(html).contains("강점이 뚜렷합니다.");
         assertThat(html).contains("협업 개선 여지가 있습니다.");
+    }
+
+    @Test
+    void 마이페이지_OPENAI활성_API키없음_fallback휴리스틱_정상렌더링() throws Exception {
+        OpenAiSummaryProperties.Provider prevProvider = openAiSummaryProperties.getProvider();
+        boolean prevEnabled = openAiSummaryProperties.isEnabled();
+        boolean prevFallback = openAiSummaryProperties.isFallbackToHeuristic();
+        String prevApiKey = openAiSummaryProperties.getApiKey();
+
+        openAiSummaryProperties.setProvider(OpenAiSummaryProperties.Provider.OPENAI);
+        openAiSummaryProperties.setEnabled(true);
+        openAiSummaryProperties.setFallbackToHeuristic(true);
+        openAiSummaryProperties.setApiKey("");
+
+        try {
+            String suffix = uniqueSuffix();
+            Organization org = createOrg("MYF" + suffix);
+            Department dept = createDept(org.getId(), "RD", "연구개발팀");
+
+            Employee evaluatee = createEmployee(org.getId(), dept.getId(), "피평가자F-" + suffix, "F-EV-" + suffix);
+            Employee evaluator = createEmployee(org.getId(), dept.getId(), "평가자F-" + suffix, "F-ER-" + suffix);
+            createUserAccount(org.getId(), evaluatee, "mypage_fallback_" + suffix, "password123");
+
+            EvaluationTemplate template = templateRepository.save(EvaluationTemplate.builder()
+                    .organizationId(org.getId())
+                    .name("MYPAGE-FALLBACK-TEMPLATE-" + suffix)
+                    .description("mypage fallback")
+                    .active(true)
+                    .build());
+
+            EvaluationQuestion scoreQuestion = questionRepository.save(EvaluationQuestion.builder()
+                    .templateId(template.getId())
+                    .organizationId(org.getId())
+                    .category("협업")
+                    .content("협업 기여도")
+                    .questionType("SCALE")
+                    .maxScore(5)
+                    .sortOrder(1)
+                    .active(true)
+                    .build());
+
+            EvaluationQuestion textQuestion = questionRepository.save(EvaluationQuestion.builder()
+                    .templateId(template.getId())
+                    .organizationId(org.getId())
+                    .category("협업")
+                    .content("총평")
+                    .questionType("DESCRIPTIVE")
+                    .sortOrder(2)
+                    .active(true)
+                    .build());
+
+            EvaluationSession evalSession = sessionRepository.save(EvaluationSession.builder()
+                    .organizationId(org.getId())
+                    .name("MYPAGE-FALLBACK-SESSION-" + suffix)
+                    .description("mypage fallback session")
+                    .status("IN_PROGRESS")
+                    .startDate(LocalDate.now().minusDays(1))
+                    .endDate(LocalDate.now().plusDays(5))
+                    .templateId(template.getId())
+                    .build());
+
+            createSubmittedResponse(org.getId(), evalSession.getId(), evaluator.getId(), evaluatee.getId(),
+                    scoreQuestion.getId(), textQuestion.getId(), 4, "안정적 협업 역량이 보입니다.");
+
+            MockHttpSession session = loginAs("mypage_fallback_" + suffix, "password123");
+            String html = mockMvc.perform(get("/user/mypage").session(session))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+
+            assertThat(html).contains("평가 데이터 기반 요약");
+            assertThat(html).contains("AI 요약");
+            assertThat(html).doesNotContain("TEMP_HEURISTIC");
+            assertThat(html).doesNotContain("OPENAI_PREPARED");
+            assertThat(html).contains("강점 영역이 아직 명확하지 않아 응답 축적이 더 필요합니다.");
+            assertThat(html).contains("취약 영역 편차가 크지 않아 현재 수준을 유지하는 것이 좋습니다.");
+        } finally {
+            openAiSummaryProperties.setProvider(prevProvider);
+            openAiSummaryProperties.setEnabled(prevEnabled);
+            openAiSummaryProperties.setFallbackToHeuristic(prevFallback);
+            openAiSummaryProperties.setApiKey(prevApiKey);
+        }
     }
 
     private void createSubmittedResponse(Long orgId,
