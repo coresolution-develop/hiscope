@@ -54,8 +54,9 @@ dependencies {
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("io.zonky.test:embedded-postgres:2.1.0")
-    testRuntimeOnly("io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8:17.6.0")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:jdbc")
     testRuntimeOnly("com.h2database:h2")
 }
 

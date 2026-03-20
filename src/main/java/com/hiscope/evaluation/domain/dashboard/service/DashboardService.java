@@ -368,6 +368,7 @@ public class DashboardService {
             case "EMP_UPDATE" -> "사용자 수정";
             case "EMP_ACTIVATE" -> "사용자 활성화";
             case "EMP_DEACTIVATE" -> "사용자 비활성화";
+            case "EMP_PASSWORD_RESET" -> "사용자 비밀번호 초기화";
             case "DEPT_UPLOAD" -> "부서 업로드";
             case "EMP_UPLOAD" -> "사용자 업로드";
             case "EVAL_QUESTION_UPLOAD" -> "평가 항목 업로드";

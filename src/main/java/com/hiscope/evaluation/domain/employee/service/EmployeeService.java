@@ -175,6 +175,21 @@ public class EmployeeService {
                 emp.getJobTitle(), emp.getEmail(), "ACTIVE");
     }
 
+    @Transactional
+    public String resetEmployeePassword(Long orgId, Long id) {
+        SecurityUtils.checkOrgAccess(orgId);
+        getByOrgAndId(orgId, id);
+        UserAccount userAccount = userAccountRepository.findByEmployeeId(id)
+                .filter(ua -> orgId.equals(ua.getOrganizationId()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "직원 로그인 계정을 찾을 수 없습니다."));
+
+        int minPasswordLength = organizationSettingService.resolvePasswordMinLength(orgId);
+        String temporaryPassword = generateInitialPassword(minPasswordLength);
+        userAccount.updatePassword(passwordEncoder.encode(temporaryPassword));
+        userAccount.markPasswordChangeRequired();
+        return temporaryPassword;
+    }
+
     public Employee getByOrgAndId(Long orgId, Long id) {
         return employeeRepository.findByOrganizationIdAndId(orgId, id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));

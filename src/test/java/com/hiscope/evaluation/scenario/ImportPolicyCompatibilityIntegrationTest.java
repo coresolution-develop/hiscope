@@ -1,5 +1,6 @@
 package com.hiscope.evaluation.scenario;
 
+import com.hiscope.evaluation.support.TestcontainersConfig;
 import com.hiscope.evaluation.domain.department.entity.Department;
 import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
 import com.hiscope.evaluation.domain.evaluation.template.entity.EvaluationTemplate;
@@ -11,9 +12,7 @@ import com.hiscope.evaluation.domain.employee.entity.Employee;
 import com.hiscope.evaluation.domain.employee.entity.UserAccount;
 import com.hiscope.evaluation.domain.employee.repository.EmployeeRepository;
 import com.hiscope.evaluation.domain.employee.repository.UserAccountRepository;
-import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,13 +22,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -40,9 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class ImportPolicyCompatibilityIntegrationTest {
-
-    private static EmbeddedPostgres embeddedPostgres;
+@ActiveProfiles("test")
+class ImportPolicyCompatibilityIntegrationTest extends TestcontainersConfig {
 
     @Autowired
     private MockMvc mockMvc;
@@ -71,21 +67,6 @@ class ImportPolicyCompatibilityIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @DynamicPropertySource
-    static void configure(DynamicPropertyRegistry registry) {
-        EmbeddedPostgres pg = postgres();
-        registry.add("spring.datasource.url", () -> pg.getJdbcUrl("postgres", "postgres"));
-        registry.add("spring.datasource.username", () -> "postgres");
-        registry.add("spring.datasource.password", () -> "postgres");
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
-        registry.add("spring.flyway.enabled", () -> true);
-        registry.add("spring.flyway.locations", () -> "classpath:db/migration/common,classpath:db/migration/local");
-        registry.add("spring.thymeleaf.cache", () -> false);
-        registry.add("app.bootstrap.super-admin.enabled", () -> false);
-        registry.add("logging.level.root", () -> "WARN");
-    }
-
     @BeforeEach
     void setupAuthContext() {
         var principal = com.hiscope.evaluation.common.security.CustomUserDetails.builder()
@@ -106,13 +87,6 @@ class ImportPolicyCompatibilityIntegrationTest {
     @AfterEach
     void clearAuthContext() {
         SecurityContextHolder.clearContext();
-    }
-
-    @AfterAll
-    static void shutdown() throws IOException {
-        if (embeddedPostgres != null) {
-            embeddedPostgres.close();
-        }
     }
 
     @Test
@@ -246,14 +220,4 @@ class ImportPolicyCompatibilityIntegrationTest {
         }
     }
 
-    private static synchronized EmbeddedPostgres postgres() {
-        if (embeddedPostgres == null) {
-            try {
-                embeddedPostgres = EmbeddedPostgres.start();
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to start embedded postgres", e);
-            }
-        }
-        return embeddedPostgres;
-    }
 }

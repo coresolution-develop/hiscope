@@ -141,7 +141,7 @@
     </div>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
-            <thead><tr><th>이름</th><th>사원번호</th><th>부서</th><th>직위</th><th>직책</th><th>로그인ID</th><th>상태</th><th width="140">관리</th></tr></thead>
+            <thead><tr><th>이름</th><th>사원번호</th><th>부서</th><th>직위</th><th>직책</th><th>로그인ID</th><th>상태</th><th width="220">관리</th></tr></thead>
             <tbody>
             <tr th:each="emp : ${employees}">
                 <td class="fw-semibold" th:text="${emp.name}"></td>
@@ -176,6 +176,17 @@
                         <button type="submit" class="btn btn-outline-success btn-sm"
                                 th:if="${emp.status == 'INACTIVE'}"
                                 onclick="return confirm('재활성화하시겠습니까?')">재활성화</button>
+                    </form>
+                    <form th:action="@{/admin/employees/{id}/reset-password(id=${emp.id})}" method="post" class="d-inline">
+                        <input type="hidden" name="page" th:value="${page}">
+                        <input type="hidden" name="size" th:value="${size}">
+                        <input type="hidden" name="keyword" th:value="${keyword}">
+                        <input type="hidden" name="status" th:value="${status}">
+                        <input type="hidden" name="departmentId" th:value="${departmentId}">
+                        <input type="hidden" name="sortBy" th:value="${sortBy}">
+                        <input type="hidden" name="sortDir" th:value="${sortDir}">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                onclick="return confirm('비밀번호를 초기화하시겠습니까?')">비밀번호 초기화</button>
                     </form>
                 </td>
             </tr>

@@ -1,10 +1,10 @@
 ALTER TABLE evaluation_sessions
-    ADD COLUMN relationship_generation_mode VARCHAR(20) NOT NULL DEFAULT 'LEGACY';
+    ADD COLUMN IF NOT EXISTS relationship_generation_mode VARCHAR(20) NOT NULL DEFAULT 'LEGACY';
 
 ALTER TABLE evaluation_sessions
-    ADD COLUMN relationship_definition_set_id BIGINT NULL;
+    ADD COLUMN IF NOT EXISTS relationship_definition_set_id BIGINT NULL;
 
-CREATE TABLE relationship_definition_sets (
+CREATE TABLE IF NOT EXISTS relationship_definition_sets (
     id              BIGSERIAL PRIMARY KEY,
     organization_id BIGINT       NOT NULL REFERENCES organizations (id),
     name            VARCHAR(200) NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE relationship_definition_sets (
     UNIQUE (organization_id, name)
 );
 
-CREATE TABLE relationship_definition_rules (
+CREATE TABLE IF NOT EXISTS relationship_definition_rules (
     id              BIGSERIAL PRIMARY KEY,
     set_id          BIGINT       NOT NULL REFERENCES relationship_definition_sets (id),
     rule_name       VARCHAR(200) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE relationship_definition_rules (
     UNIQUE (set_id, rule_name)
 );
 
-CREATE TABLE relationship_rule_matchers (
+CREATE TABLE IF NOT EXISTS relationship_rule_matchers (
     id              BIGSERIAL PRIMARY KEY,
     rule_id         BIGINT       NOT NULL REFERENCES relationship_definition_rules (id),
     subject_type    VARCHAR(20)  NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE relationship_rule_matchers (
     updated_at      TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE employee_attributes (
+CREATE TABLE IF NOT EXISTS employee_attributes (
     id              BIGSERIAL PRIMARY KEY,
     organization_id BIGINT       NOT NULL REFERENCES organizations (id),
     attribute_key   VARCHAR(100) NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE employee_attributes (
     UNIQUE (organization_id, attribute_key)
 );
 
-CREATE TABLE employee_attribute_values (
+CREATE TABLE IF NOT EXISTS employee_attribute_values (
     id              BIGSERIAL PRIMARY KEY,
     employee_id     BIGINT       NOT NULL REFERENCES employees (id),
     attribute_id    BIGINT       NOT NULL REFERENCES employee_attributes (id),
@@ -61,7 +61,7 @@ CREATE TABLE employee_attribute_values (
     UNIQUE (employee_id, attribute_id, value_text)
 );
 
-CREATE TABLE session_generated_relationships (
+CREATE TABLE IF NOT EXISTS session_generated_relationships (
     id              BIGSERIAL PRIMARY KEY,
     session_id      BIGINT      NOT NULL REFERENCES evaluation_sessions (id),
     organization_id BIGINT      NOT NULL REFERENCES organizations (id),
@@ -75,7 +75,7 @@ CREATE TABLE session_generated_relationships (
     UNIQUE (session_id, evaluator_id, evaluatee_id)
 );
 
-CREATE TABLE session_relationship_overrides (
+CREATE TABLE IF NOT EXISTS session_relationship_overrides (
     id              BIGSERIAL PRIMARY KEY,
     session_id      BIGINT      NOT NULL REFERENCES evaluation_sessions (id),
     organization_id BIGINT      NOT NULL REFERENCES organizations (id),
@@ -88,33 +88,39 @@ CREATE TABLE session_relationship_overrides (
     updated_at      TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
+-- FK: 재실행 가능하도록 기존 제약 제거 후 재생성
+ALTER TABLE evaluation_sessions
+    DROP CONSTRAINT IF EXISTS fk_eval_sessions_rule_definition_set;
+
 ALTER TABLE evaluation_sessions
     ADD CONSTRAINT fk_eval_sessions_rule_definition_set
-        FOREIGN KEY (relationship_definition_set_id) REFERENCES relationship_definition_sets (id);
+        FOREIGN KEY (relationship_definition_set_id)
+        REFERENCES relationship_definition_sets (id);
 
-CREATE INDEX idx_relationship_definition_sets_org
+-- 인덱스: 이미 존재하면 스킵
+CREATE INDEX IF NOT EXISTS idx_relationship_definition_sets_org
     ON relationship_definition_sets (organization_id);
 
-CREATE INDEX idx_relationship_definition_rules_set_priority
+CREATE INDEX IF NOT EXISTS idx_relationship_definition_rules_set_priority
     ON relationship_definition_rules (set_id, priority);
 
-CREATE INDEX idx_relationship_rule_matchers_rule_subject
+CREATE INDEX IF NOT EXISTS idx_relationship_rule_matchers_rule_subject
     ON relationship_rule_matchers (rule_id, subject_type, matcher_type);
 
-CREATE INDEX idx_employee_attributes_org
+CREATE INDEX IF NOT EXISTS idx_employee_attributes_org
     ON employee_attributes (organization_id);
 
-CREATE INDEX idx_employee_attribute_values_employee
+CREATE INDEX IF NOT EXISTS idx_employee_attribute_values_employee
     ON employee_attribute_values (employee_id);
 
-CREATE INDEX idx_employee_attribute_values_attribute
+CREATE INDEX IF NOT EXISTS idx_employee_attribute_values_attribute
     ON employee_attribute_values (attribute_id);
 
-CREATE INDEX idx_session_generated_relationships_session
+CREATE INDEX IF NOT EXISTS idx_session_generated_relationships_session
     ON session_generated_relationships (session_id);
 
-CREATE INDEX idx_session_generated_relationships_rule
+CREATE INDEX IF NOT EXISTS idx_session_generated_relationships_rule
     ON session_generated_relationships (source_rule_id);
 
-CREATE INDEX idx_session_relationship_overrides_session
+CREATE INDEX IF NOT EXISTS idx_session_relationship_overrides_session
     ON session_relationship_overrides (session_id);

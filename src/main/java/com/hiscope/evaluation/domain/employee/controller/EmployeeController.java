@@ -234,6 +234,39 @@ public class EmployeeController {
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
     }
 
+    @PostMapping("/{id}/reset-password")
+    public String resetPassword(@PathVariable Long id,
+                                @RequestParam(defaultValue = "0") int page,
+                                @RequestParam(defaultValue = "50") int size,
+                                @RequestParam(required = false) String keyword,
+                                @RequestParam(required = false) String status,
+                                @RequestParam(required = false) Long departmentId,
+                                @RequestParam(required = false) String sortBy,
+                                @RequestParam(required = false) String sortDir,
+                                RedirectAttributes ra) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.max(10, Math.min(size, 200));
+        String normalizedKeyword = normalizeKeyword(keyword);
+        String normalizedStatus = normalizeStatus(status);
+        Long normalizedDepartmentId = normalizeDepartmentId(departmentId);
+        String normalizedSortBy = normalizeSortBy(sortBy);
+        String normalizedSortDir = normalizeSortDir(sortDir);
+        try {
+            Long orgId = SecurityUtils.getCurrentOrgId();
+            String temporaryPassword = employeeService.resetEmployeePassword(orgId, id);
+            auditLogger.success("EMP_PASSWORD_RESET", "EMPLOYEE", String.valueOf(id),
+                    AuditDetail.of("orgId", orgId, "passwordReset", true));
+            ra.addFlashAttribute("successMessage", "직원 비밀번호가 초기화되었습니다. 임시 비밀번호: " + temporaryPassword);
+        } catch (BusinessException e) {
+            auditLogger.fail("EMP_PASSWORD_RESET", "EMPLOYEE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            auditLogger.fail("EMP_PASSWORD_RESET", "EMPLOYEE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", "직원 비밀번호 초기화 중 오류가 발생했습니다.");
+        }
+        return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
+    }
+
     private String buildListRedirect(int page,
                                      int size,
                                      String keyword,

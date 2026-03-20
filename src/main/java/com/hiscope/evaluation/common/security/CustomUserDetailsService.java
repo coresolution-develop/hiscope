@@ -36,10 +36,14 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         // orgCode 미입력 시: 슈퍼 관리자 먼저 허용, 그 외에는 유일한 계정일 때만 허용
-        var superAdmin = accountRepository.findByOrganizationIdAndLoginIdAndStatus(null, loginId, "ACTIVE")
-                .map(this::toAdminUserDetails);
-        if (superAdmin.isPresent()) {
-            return superAdmin.get();
+        var superAdmins = accountRepository.findAllByLoginIdAndStatus(loginId, "ACTIVE").stream()
+                .filter(a -> a.getOrganizationId() == null)
+                .toList();
+        if (superAdmins.size() > 1) {
+            throw new UsernameNotFoundException("중복 슈퍼관리자 로그인ID입니다. 관리자에게 문의해주세요.");
+        }
+        if (superAdmins.size() == 1) {
+            return toAdminUserDetails(superAdmins.get(0));
         }
 
         var adminMatches = accountRepository.findAllByLoginIdAndStatus(loginId, "ACTIVE").stream()
