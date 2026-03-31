@@ -23,7 +23,7 @@ public class AdminSettingsRequest {
     )
     private String uploadAllowedExtensions;
 
-    @Min(value = 8, message = "비밀번호 최소 길이는 8 이상이어야 합니다.")
+    @Min(value = 1, message = "비밀번호 최소 길이는 1 이상이어야 합니다.")
     @Max(value = 50, message = "비밀번호 최소 길이는 50 이하여야 합니다.")
     private Integer passwordMinLength;
 

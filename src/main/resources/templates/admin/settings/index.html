@@ -59,7 +59,7 @@
                         <label class="form-label fw-semibold">비밀번호 최소 길이</label>
                         <input type="number" th:field="*{passwordMinLength}"
                                th:classappend="${#fields.hasErrors('passwordMinLength')} ? ' is-invalid' : ''"
-                               class="form-control" min="8" max="50">
+                               class="form-control" min="1" max="50">
                         <div class="invalid-feedback" th:if="${#fields.hasErrors('passwordMinLength')}" th:errors="*{passwordMinLength}"></div>
                     </div>
                     <div class="mb-3">

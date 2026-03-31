@@ -29,7 +29,7 @@ public class OrganizationSettingService {
     public static final String KEY_SESSION_DEFAULT_ALLOW_RESUBMIT = "SESSION_DEFAULT_ALLOW_RESUBMIT";
 
     private static final int DEFAULT_SESSION_DURATION_DAYS = 14;
-    private static final int DEFAULT_PASSWORD_MIN_LENGTH = 8;
+    private static final int DEFAULT_PASSWORD_MIN_LENGTH = 1;
 
     private final OrganizationSettingRepository organizationSettingRepository;
     private final UploadPolicyProperties uploadPolicyProperties;
