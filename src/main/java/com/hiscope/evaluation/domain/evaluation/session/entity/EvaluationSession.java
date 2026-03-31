@@ -85,6 +85,13 @@ public class EvaluationSession extends BaseTimeEntity {
         this.allowResubmit = allowResubmit;
     }
 
+    public void rename(String name) {
+        if (name == null || name.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "세션명은 비워둘 수 없습니다.");
+        }
+        this.name = name.trim();
+    }
+
     public boolean isPending() { return "PENDING".equals(this.status); }
     public boolean isInProgress() { return "IN_PROGRESS".equals(this.status); }
     public boolean isClosed() { return "CLOSED".equals(this.status); }

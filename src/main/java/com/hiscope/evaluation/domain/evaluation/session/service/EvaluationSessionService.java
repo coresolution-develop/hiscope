@@ -18,6 +18,7 @@ import com.hiscope.evaluation.domain.evaluation.session.repository.EvaluationSes
 import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
 import com.hiscope.evaluation.domain.evaluation.assignment.repository.EvaluationAssignmentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -45,6 +47,7 @@ public class EvaluationSessionService {
     private final LegacyRelationshipMirrorAdapter legacyRelationshipMirrorAdapter;
     private final RelationshipDefinitionSetRepository definitionSetRepository;
     private final SessionRelationshipGenerationRunService generationRunService;
+    private final SessionParticipantService participantService;
 
     public List<EvaluationSession> findAll(Long orgId) {
         SecurityUtils.checkOrgAccess(orgId);
@@ -138,7 +141,7 @@ public class EvaluationSessionService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .templateId(request.getTemplateId())
-                .allowResubmit(request.isAllowResubmit())
+                .allowResubmit(Boolean.TRUE.equals(request.getAllowResubmit()))
                 .createdBy(SecurityUtils.getCurrentUser().getId())
                 .relationshipGenerationMode(request.getRelationshipGenerationMode())
                 .relationshipDefinitionSetId(resolveDefinitionSetId(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId()))
@@ -196,6 +199,11 @@ public class EvaluationSessionService {
             // 안전장치: 컬럼 도입 이전/비정상 데이터는 LEGACY 처리
             session.configureRelationshipDefinition(RelationshipGenerationMode.LEGACY, null);
         }
+        // 방어 로직: 스냅샷 미존재 시 start() 시점에 자동 생성
+        if (!participantService.hasSnapshot(sessionId)) {
+            log.warn("세션 {} 스냅샷 미존재 — start() 시점에 자동 생성", sessionId);
+            participantService.snapshotParticipants(sessionId, orgId);
+        }
         session.start();
         // Assignment 스냅샷 생성
         assignmentService.createAssignmentsForSession(session);
@@ -216,11 +224,18 @@ public class EvaluationSessionService {
         validateRelationshipGenerationRequest(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId());
         EvaluationSession session = getByOrgAndId(orgId, sessionId);
         session.update(request.getName(), request.getDescription(),
-                request.getStartDate(), request.getEndDate(), request.getTemplateId(), request.isAllowResubmit());
+                request.getStartDate(), request.getEndDate(), request.getTemplateId(), Boolean.TRUE.equals(request.getAllowResubmit()));
         session.configureRelationshipDefinition(
                 request.getRelationshipGenerationMode(),
                 resolveDefinitionSetId(request.getRelationshipGenerationMode(), request.getRelationshipDefinitionSetId())
         );
+    }
+
+    @Transactional
+    public void rename(Long orgId, Long sessionId, String name) {
+        SecurityUtils.checkOrgAccess(orgId);
+        EvaluationSession session = getByOrgAndId(orgId, sessionId);
+        session.rename(name);
     }
 
     @Transactional

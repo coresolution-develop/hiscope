@@ -5,53 +5,103 @@
 <th:block th:fragment="topbar">
     <nav class="navbar pe-topbar sticky-top">
         <div class="container-fluid">
+            <!-- Desktop sidebar toggle (hidden on mobile) -->
+            <button class="btn d-none d-lg-flex border-0 text-white p-1 me-2" type="button"
+                    id="sidebarDesktopToggle" aria-label="사이드바 접기/펼치기">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            <!-- Mobile hamburger (hidden on lg+) -->
+            <button class="btn d-lg-none border-0 text-white p-1 me-2" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar"
+                    aria-label="메뉴 열기">
+                <i class="bi bi-list fs-4"></i>
+            </button>
             <a class="navbar-brand pe-brand" href="#">
                 <img src="/images/pe/core_logo2.png" alt="PE Brand" class="pe-brand-logo">
             </a>
-            <div class="ms-auto d-flex align-items-center gap-3">
-                <span class="pe-user-meta">
+            <div class="ms-auto d-flex align-items-center gap-2 gap-sm-3">
+                <span class="pe-user-meta d-none d-sm-inline">
                     <i class="bi bi-person-circle me-1"></i>
                     <sec:authentication property="name" />
                 </span>
                 <a href="/logout" class="pe-logout-btn">
                     <img src="/images/pe/logout.png" alt="logout">
-                    <span>로그아웃</span>
+                    <span class="d-none d-sm-inline">로그아웃</span>
                 </a>
             </div>
         </div>
     </nav>
+
+    <!-- Mobile Offcanvas Sidebar -->
+    <div class="offcanvas offcanvas-start" id="mobileSidebar" tabindex="-1"
+         style="background: var(--pe-brand-800); max-width: 280px; border-right: 1px solid #27384f;">
+        <div class="offcanvas-header" style="border-bottom: 1px solid #27384f; min-height: 56px; padding: 0.75rem 1rem;">
+            <img src="/images/pe/core_logo2.png" alt="PE" style="height: 26px;">
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="닫기"></button>
+        </div>
+        <div class="offcanvas-body p-2">
+            <div sec:authorize="hasRole('SUPER_ADMIN')">
+                <div class="nav-section">관리</div>
+                <a class="nav-link" data-nav-prefix="/super-admin/dashboard" href="/super-admin/dashboard"><i class="bi bi-speedometer2 me-2"></i>대시보드</a>
+                <a class="nav-link" data-nav-prefix="/super-admin/organizations" href="/super-admin/organizations"><i class="bi bi-building me-2"></i>기관 관리</a>
+                <a class="nav-link" data-nav-prefix="/super-admin/audit" href="/super-admin/audit"><i class="bi bi-journal-text me-2"></i>감사 로그</a>
+            </div>
+            <div sec:authorize="hasRole('ORG_ADMIN')">
+                <a class="nav-link" data-nav-prefix="/admin/dashboard" href="/admin/dashboard"><i class="bi bi-speedometer2 me-2"></i>대시보드</a>
+                <div class="nav-section mt-2">조직</div>
+                <a class="nav-link" data-nav-prefix="/admin/departments" href="/admin/departments"><i class="bi bi-diagram-3 me-2"></i>부서 관리</a>
+                <a class="nav-link" data-nav-prefix="/admin/employees" href="/admin/employees"><i class="bi bi-people me-2"></i>직원 관리</a>
+                <div class="nav-section mt-2">평가</div>
+                <a class="nav-link" data-nav-prefix="/admin/evaluation/templates" href="/admin/evaluation/templates"><i class="bi bi-file-text me-2"></i>평가 템플릿</a>
+                <a class="nav-link" data-nav-prefix="/admin/evaluation/sessions" href="/admin/evaluation/sessions"><i class="bi bi-calendar3 me-2"></i>평가 세션</a>
+                <a class="nav-link" data-nav-prefix="/admin/evaluation/results" href="/admin/evaluation/results"><i class="bi bi-clipboard-data me-2"></i>평가 결과</a>
+                <div class="nav-section mt-2">기타</div>
+                <a class="nav-link" data-nav-prefix="/admin/uploads/history" href="/admin/uploads/history"><i class="bi bi-upload me-2"></i>업로드 이력</a>
+                <a class="nav-link" data-nav-prefix="/admin/audit" href="/admin/audit"><i class="bi bi-journal-text me-2"></i>감사 로그</a>
+                <a class="nav-link" data-nav-prefix="/admin/settings" href="/admin/settings"><i class="bi bi-sliders me-2"></i>운영 설정</a>
+                <a class="nav-link" data-nav-prefix="/admin/settings/relationships" href="/admin/settings/relationships"><i class="bi bi-diagram-3 me-2"></i>관계 정의 설정</a>
+                <a class="nav-link d-none" data-nav-prefix="/admin/settings/employee-attributes" href="/admin/settings/employee-attributes"><i class="bi bi-tags me-2"></i>직원 속성 관리</a>
+            </div>
+            <div sec:authorize="hasRole('USER')">
+                <div class="nav-section">평가</div>
+                <a class="nav-link" data-nav-prefix="/user/dashboard" href="/user/dashboard"><i class="bi bi-house me-2"></i>홈</a>
+                <a class="nav-link" data-nav-prefix="/user/evaluations" href="/user/evaluations"><i class="bi bi-pencil-square me-2"></i>나의 평가</a>
+                <a class="nav-link" data-nav-prefix="/user/mypage" href="/user/mypage"><i class="bi bi-person-badge me-2"></i>마이페이지</a>
+            </div>
+        </div>
+    </div>
 </th:block>
 
-<nav th:fragment="sidebar" class="col-lg-2 sidebar">
+<nav th:fragment="sidebar" class="col-lg-2 sidebar d-none d-lg-block">
     <div sec:authorize="hasRole('SUPER_ADMIN')">
         <div class="nav-section">관리</div>
-        <a class="nav-link" data-nav-prefix="/super-admin/dashboard" href="/super-admin/dashboard"><i class="bi bi-speedometer2 me-2"></i>대시보드</a>
-        <a class="nav-link" data-nav-prefix="/super-admin/organizations" href="/super-admin/organizations"><i class="bi bi-building me-2"></i>기관 관리</a>
-        <a class="nav-link" data-nav-prefix="/super-admin/audit" href="/super-admin/audit"><i class="bi bi-journal-text me-2"></i>감사 로그</a>
+        <a class="nav-link" data-nav-prefix="/super-admin/dashboard" href="/super-admin/dashboard" title="대시보드"><i class="bi bi-speedometer2 me-2"></i><span class="nav-text">대시보드</span></a>
+        <a class="nav-link" data-nav-prefix="/super-admin/organizations" href="/super-admin/organizations" title="기관 관리"><i class="bi bi-building me-2"></i><span class="nav-text">기관 관리</span></a>
+        <a class="nav-link" data-nav-prefix="/super-admin/audit" href="/super-admin/audit" title="감사 로그"><i class="bi bi-journal-text me-2"></i><span class="nav-text">감사 로그</span></a>
     </div>
 
     <div sec:authorize="hasRole('ORG_ADMIN')">
-        <a class="nav-link" data-nav-prefix="/admin/dashboard" href="/admin/dashboard"><i class="bi bi-speedometer2 me-2"></i>대시보드</a>
+        <a class="nav-link" data-nav-prefix="/admin/dashboard" href="/admin/dashboard" title="대시보드"><i class="bi bi-speedometer2 me-2"></i><span class="nav-text">대시보드</span></a>
         <div class="nav-section mt-2">조직</div>
-        <a class="nav-link" data-nav-prefix="/admin/departments" href="/admin/departments"><i class="bi bi-diagram-3 me-2"></i>부서 관리</a>
-        <a class="nav-link" data-nav-prefix="/admin/employees" href="/admin/employees"><i class="bi bi-people me-2"></i>직원 관리</a>
+        <a class="nav-link" data-nav-prefix="/admin/departments" href="/admin/departments" title="부서 관리"><i class="bi bi-diagram-3 me-2"></i><span class="nav-text">부서 관리</span></a>
+        <a class="nav-link" data-nav-prefix="/admin/employees" href="/admin/employees" title="직원 관리"><i class="bi bi-people me-2"></i><span class="nav-text">직원 관리</span></a>
         <div class="nav-section mt-2">평가</div>
-        <a class="nav-link" data-nav-prefix="/admin/evaluation/templates" href="/admin/evaluation/templates"><i class="bi bi-file-text me-2"></i>평가 템플릿</a>
-        <a class="nav-link" data-nav-prefix="/admin/evaluation/sessions" href="/admin/evaluation/sessions"><i class="bi bi-calendar3 me-2"></i>평가 세션</a>
-        <a class="nav-link" data-nav-prefix="/admin/evaluation/results" href="/admin/evaluation/results"><i class="bi bi-clipboard-data me-2"></i>평가 결과</a>
+        <a class="nav-link" data-nav-prefix="/admin/evaluation/templates" href="/admin/evaluation/templates" title="평가 템플릿"><i class="bi bi-file-text me-2"></i><span class="nav-text">평가 템플릿</span></a>
+        <a class="nav-link" data-nav-prefix="/admin/evaluation/sessions" href="/admin/evaluation/sessions" title="평가 세션"><i class="bi bi-calendar3 me-2"></i><span class="nav-text">평가 세션</span></a>
+        <a class="nav-link" data-nav-prefix="/admin/evaluation/results" href="/admin/evaluation/results" title="평가 결과"><i class="bi bi-clipboard-data me-2"></i><span class="nav-text">평가 결과</span></a>
         <div class="nav-section mt-2">기타</div>
-        <a class="nav-link" data-nav-prefix="/admin/uploads/history" href="/admin/uploads/history"><i class="bi bi-upload me-2"></i>업로드 이력</a>
-        <a class="nav-link" data-nav-prefix="/admin/audit" href="/admin/audit"><i class="bi bi-journal-text me-2"></i>감사 로그</a>
-        <a class="nav-link" data-nav-prefix="/admin/settings" href="/admin/settings"><i class="bi bi-sliders me-2"></i>운영 설정</a>
-        <a class="nav-link" data-nav-prefix="/admin/settings/relationships" href="/admin/settings/relationships"><i class="bi bi-diagram-3 me-2"></i>관계 정의 설정</a>
-        <a class="nav-link" data-nav-prefix="/admin/settings/employee-attributes" href="/admin/settings/employee-attributes"><i class="bi bi-tags me-2"></i>직원 속성 관리</a>
+        <a class="nav-link" data-nav-prefix="/admin/uploads/history" href="/admin/uploads/history" title="업로드 이력"><i class="bi bi-upload me-2"></i><span class="nav-text">업로드 이력</span></a>
+        <a class="nav-link" data-nav-prefix="/admin/audit" href="/admin/audit" title="감사 로그"><i class="bi bi-journal-text me-2"></i><span class="nav-text">감사 로그</span></a>
+        <a class="nav-link" data-nav-prefix="/admin/settings" href="/admin/settings" title="운영 설정"><i class="bi bi-sliders me-2"></i><span class="nav-text">운영 설정</span></a>
+        <a class="nav-link" data-nav-prefix="/admin/settings/relationships" href="/admin/settings/relationships" title="관계 정의 설정"><i class="bi bi-diagram-3 me-2"></i><span class="nav-text">관계 정의 설정</span></a>
+        <a class="nav-link d-none" data-nav-prefix="/admin/settings/employee-attributes" href="/admin/settings/employee-attributes" title="직원 속성 관리"><i class="bi bi-tags me-2"></i><span class="nav-text">직원 속성 관리</span></a>
     </div>
 
     <div sec:authorize="hasRole('USER')">
         <div class="nav-section">평가</div>
-        <a class="nav-link" data-nav-prefix="/user/dashboard" href="/user/dashboard"><i class="bi bi-house me-2"></i>홈</a>
-        <a class="nav-link" data-nav-prefix="/user/evaluations" href="/user/evaluations"><i class="bi bi-pencil-square me-2"></i>나의 평가</a>
-        <a class="nav-link" data-nav-prefix="/user/mypage" href="/user/mypage"><i class="bi bi-person-badge me-2"></i>마이페이지</a>
+        <a class="nav-link" data-nav-prefix="/user/dashboard" href="/user/dashboard" title="홈"><i class="bi bi-house me-2"></i><span class="nav-text">홈</span></a>
+        <a class="nav-link" data-nav-prefix="/user/evaluations" href="/user/evaluations" title="나의 평가"><i class="bi bi-pencil-square me-2"></i><span class="nav-text">나의 평가</span></a>
+        <a class="nav-link" data-nav-prefix="/user/mypage" href="/user/mypage" title="마이페이지"><i class="bi bi-person-badge me-2"></i><span class="nav-text">마이페이지</span></a>
     </div>
 </nav>
 </body>

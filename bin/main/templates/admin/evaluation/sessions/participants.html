@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head>
+    <title>참여자 관리</title>
+</head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+
+    <!-- 페이지 헤더 -->
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a th:href="@{/admin/evaluation/sessions/{id}(id=${evalSession.id})}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="flex-grow-1">
+            <h4 class="mb-0 fw-bold" th:text="${evalSession.name + ' — 참여자 관리'}">세션명 — 참여자 관리</h4>
+            <small class="text-muted" th:text="${evalSession.startDate + ' ~ ' + evalSession.endDate}">기간</small>
+        </div>
+        <span class="badge bg-secondary fs-6" th:if="${evalSession.status == 'PENDING'}">대기</span>
+        <span class="badge bg-primary fs-6" th:if="${evalSession.status == 'IN_PROGRESS'}">진행 중</span>
+        <span class="badge bg-success fs-6" th:if="${evalSession.status == 'CLOSED'}">종료</span>
+    </div>
+
+    <!-- 플래시 메시지 -->
+    <div class="alert alert-success alert-dismissible fade show py-2" role="alert"
+         th:if="${successMessage}">
+        <i class="bi bi-check-circle me-1"></i>
+        <span th:text="${successMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div class="alert alert-danger alert-dismissible fade show py-2" role="alert"
+         th:if="${errorMessage}">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        <span th:text="${errorMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- 스냅샷 미생성 안내 -->
+    <div class="alert alert-warning d-flex align-items-center gap-3 mb-4" th:if="${!hasSnapshot}">
+        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+        <div class="flex-grow-1">
+            <div class="fw-semibold">아직 참여자 명부가 확정되지 않았습니다.</div>
+            <small class="text-muted">확정 버튼을 누르면 현재 기관의 재직 직원 전체가 참여자로 등록됩니다.</small>
+        </div>
+        <form th:action="@{/admin/evaluation/sessions/{id}/participants/snapshot(id=${evalSession.id})}"
+              method="post" class="mb-0">
+            <button type="submit" class="btn btn-warning btn-sm fw-bold"
+                    onclick="return confirm('현재 재직 직원 전체를 참여자 명부로 확정하겠습니까?')">
+                <i class="bi bi-people-fill me-1"></i>참여자 명부 확정
+            </button>
+        </form>
+    </div>
+
+    <!-- 스냅샷 생성 후 참여자 목록 -->
+    <div th:if="${hasSnapshot}">
+        <!-- 상단 통계 + 액션 버튼 -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex gap-3">
+                <span class="text-muted small">
+                    총 <strong class="text-dark" th:text="${activeCount}">0</strong>명 참여
+                </span>
+                <span class="text-muted small" th:if="${removedCount > 0}">
+                    (제외 <strong th:text="${removedCount}">0</strong>명 포함)
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                <a th:href="@{/admin/evaluation/sessions/{id}/participants/history(id=${evalSession.id})}"
+                   class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-clock-history me-1"></i>변경 이력
+                </a>
+                <button type="button" class="btn btn-primary btn-sm"
+                        th:if="${evalSession.status != 'CLOSED'}"
+                        data-bs-toggle="modal" data-bs-target="#addParticipantModal">
+                    <i class="bi bi-person-plus me-1"></i>직원 추가
+                </button>
+            </div>
+        </div>
+
+        <!-- 참여자 테이블 -->
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">이름</th>
+                            <th>부서</th>
+                            <th>직위</th>
+                            <th>상태</th>
+                            <th>변경 사유</th>
+                            <th class="text-center" th:if="${evalSession.status != 'CLOSED'}">액션</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(participants)}">
+                            <td colspan="6" class="text-center text-muted py-4">참여자가 없습니다.</td>
+                        </tr>
+                        <tr th:each="p : ${participants}"
+                            th:style="${p.removed} ? 'opacity:0.5' : ''">
+                            <td class="ps-3 fw-semibold" th:text="${p.name}"></td>
+                            <td class="text-muted small" th:text="${p.departmentName ?: '-'}"></td>
+                            <td class="text-muted small" th:text="${p.position ?: '-'}"></td>
+                            <td>
+                                <span class="badge bg-success" th:if="${p.overrideAction == null}">정상</span>
+                                <span class="badge badge-brand" th:if="${p.overrideAction == 'ADD'}">추가</span>
+                                <span class="badge bg-secondary" th:if="${p.overrideAction == 'REMOVE'}">제외</span>
+                                <span class="badge bg-info" th:if="${p.overrideAction == 'UPDATE'}">수정</span>
+                            </td>
+                            <td class="text-muted small" th:text="${p.overrideReason ?: '-'}"></td>
+                            <td class="text-center" th:if="${evalSession.status != 'CLOSED'}">
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm"
+                                        th:if="${p.active}"
+                                        th:attr="data-emp-id=${p.employeeId}, data-emp-name=${p.name}"
+                                        onclick="openRemoveModal(this)">
+                                    제외
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 직원 추가 모달 -->
+    <div class="modal fade" id="addParticipantModal" tabindex="-1" aria-labelledby="addParticipantModalLabel">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addParticipantModalLabel">
+                        <i class="bi bi-person-plus me-2"></i>직원 추가
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 검색 -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">직원 검색</label>
+                        <input type="text" id="employeeSearchInput" class="form-control"
+                               placeholder="이름 또는 사원번호 입력…" autocomplete="off">
+                        <div id="searchResultList" class="mt-2 border rounded" style="max-height:220px;overflow-y:auto;display:none;"></div>
+                    </div>
+                    <!-- 선택된 직원 표시 -->
+                    <div id="selectedEmployeeBox" class="alert alert-info py-2 small d-none">
+                        선택된 직원: <strong id="selectedEmployeeName"></strong>
+                        <button type="button" class="btn-close float-end btn-close-sm" onclick="clearSelection()"></button>
+                    </div>
+                    <!-- 사유 입력 -->
+                    <div class="mb-1">
+                        <label class="form-label fw-semibold">추가 사유 <span class="text-danger">*</span></label>
+                        <textarea id="addReasonInput" class="form-control" rows="2"
+                                  placeholder="추가 사유를 입력하세요 (필수)" maxlength="500"></textarea>
+                    </div>
+                    <small class="text-muted">* 이미 참여 중인 직원은 검색 결과에 표시되지 않습니다.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="submitAdd()">추가</button>
+                </div>
+                <!-- 숨김 폼 (JS로 submit) -->
+                <form id="addParticipantForm" method="post"
+                      th:action="@{/admin/evaluation/sessions/{id}/participants/add(id=${evalSession.id})}">
+                    <input type="hidden" id="hiddenEmployeeId" name="employeeId">
+                    <input type="hidden" id="hiddenReason" name="reason">
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 직원 제외 확인 모달 -->
+    <div class="modal fade" id="removeParticipantModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-dash me-2"></i>직원 제외</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        <strong id="removeTargetName"></strong>님을 이번 평가에서 제외하시겠습니까?
+                    </p>
+                    <label class="form-label fw-semibold">제외 사유 <span class="text-danger">*</span></label>
+                    <textarea id="removeReasonInput" class="form-control" rows="2"
+                              placeholder="제외 사유를 입력하세요 (필수)" maxlength="500"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-danger" onclick="submitRemove()">제외</button>
+                </div>
+                <form id="removeParticipantForm" method="post"
+                      th:action="@{/admin/evaluation/sessions/{id}/participants/remove(id=${evalSession.id})}">
+                    <input type="hidden" id="removeHiddenEmployeeId" name="employeeId">
+                    <input type="hidden" id="removeHiddenReason" name="reason">
+                </form>
+            </div>
+        </div>
+    </div>
+
+</th:block>
+<th:block th:fragment="scripts">
+<script th:inline="javascript">
+    const SESSION_ID = /*[[${evalSession.id}]]*/ 0;
+    let selectedEmployeeId = null;
+    let searchTimeout = null;
+
+    // ── 직원 검색 ──────────────────────────────────────────
+    document.getElementById('employeeSearchInput')?.addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        const q = this.value.trim();
+        if (q.length === 0) {
+            hideResults();
+            return;
+        }
+        searchTimeout = setTimeout(() => doSearch(q), 280);
+    });
+
+    function doSearch(q) {
+        fetch(`/admin/evaluation/sessions/${SESSION_ID}/participants/search?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => renderResults(data))
+            .catch(() => hideResults());
+    }
+
+    function renderResults(data) {
+        const box = document.getElementById('searchResultList');
+        if (!data || data.length === 0) {
+            box.innerHTML = '<div class="p-2 text-muted small text-center">검색 결과 없음</div>';
+            box.style.display = 'block';
+            return;
+        }
+        box.innerHTML = data.map(emp => `
+            <div class="px-3 py-2 search-item" style="cursor:pointer;border-bottom:1px solid #eee;"
+                 data-id="${emp.employeeId}" data-name="${emp.name}"
+                 onmouseenter="this.style.background='#f0f4ff'"
+                 onmouseleave="this.style.background=''"
+                 onclick="selectEmployee(${emp.employeeId}, '${emp.name.replace(/'/g, "\\'")}')">
+                <strong>${emp.name}</strong>
+                <span class="text-muted small ms-2">${emp.departmentName || ''} ${emp.position ? '/ ' + emp.position : ''}</span>
+            </div>
+        `).join('');
+        box.style.display = 'block';
+    }
+
+    function hideResults() {
+        const box = document.getElementById('searchResultList');
+        if (box) box.style.display = 'none';
+    }
+
+    function selectEmployee(id, name) {
+        selectedEmployeeId = id;
+        document.getElementById('selectedEmployeeName').textContent = name;
+        document.getElementById('selectedEmployeeBox').classList.remove('d-none');
+        document.getElementById('employeeSearchInput').value = name;
+        hideResults();
+    }
+
+    function clearSelection() {
+        selectedEmployeeId = null;
+        document.getElementById('selectedEmployeeBox').classList.add('d-none');
+        document.getElementById('selectedEmployeeName').textContent = '';
+        document.getElementById('employeeSearchInput').value = '';
+    }
+
+    // ── 직원 추가 제출 ─────────────────────────────────────
+    function submitAdd() {
+        if (!selectedEmployeeId) {
+            alert('추가할 직원을 검색 후 선택해주세요.');
+            return;
+        }
+        const reason = document.getElementById('addReasonInput').value.trim();
+        if (!reason) {
+            alert('추가 사유를 입력해주세요.');
+            return;
+        }
+        document.getElementById('hiddenEmployeeId').value = selectedEmployeeId;
+        document.getElementById('hiddenReason').value = reason;
+        document.getElementById('addParticipantForm').submit();
+    }
+
+    // ── 직원 제외 모달 열기 ────────────────────────────────
+    function openRemoveModal(btn) {
+        const empId = btn.getAttribute('data-emp-id');
+        const empName = btn.getAttribute('data-emp-name');
+        document.getElementById('removeTargetName').textContent = empName;
+        document.getElementById('removeHiddenEmployeeId').value = empId;
+        document.getElementById('removeReasonInput').value = '';
+        new bootstrap.Modal(document.getElementById('removeParticipantModal')).show();
+    }
+
+    // ── 직원 제외 제출 ─────────────────────────────────────
+    function submitRemove() {
+        const reason = document.getElementById('removeReasonInput').value.trim();
+        if (!reason) {
+            alert('제외 사유를 입력해주세요.');
+            return;
+        }
+        document.getElementById('removeHiddenReason').value = reason;
+        document.getElementById('removeParticipantForm').submit();
+    }
+</script>
+</th:block>
+</html>

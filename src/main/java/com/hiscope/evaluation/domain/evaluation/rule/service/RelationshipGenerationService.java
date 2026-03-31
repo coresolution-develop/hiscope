@@ -243,6 +243,13 @@ public class RelationshipGenerationService {
                         .map(Employee::getId)
                         .collect(Collectors.toSet());
             }
+            case POSITION -> {
+                Set<String> positions = values.stream().map(String::trim).filter(v -> !v.isBlank()).collect(Collectors.toSet());
+                yield employeeMap.values().stream()
+                        .filter(e -> e.getPosition() != null && positions.contains(e.getPosition()))
+                        .map(Employee::getId)
+                        .collect(Collectors.toSet());
+            }
             case ATTRIBUTE -> matchByAttribute(employeeAttributeValues, values);
         };
     }

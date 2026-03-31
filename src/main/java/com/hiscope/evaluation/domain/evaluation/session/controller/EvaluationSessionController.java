@@ -4,21 +4,30 @@ import com.hiscope.evaluation.common.audit.AuditLogger;
 import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
+import com.hiscope.evaluation.domain.evaluation.rule.dto.SimpleRelationshipPreviewItem;
+import com.hiscope.evaluation.domain.evaluation.rule.dto.SimpleRelationshipWizardRequest;
+import com.hiscope.evaluation.domain.evaluation.rule.service.SimpleRelationshipWizardService;
 import com.hiscope.evaluation.domain.evaluation.session.dto.SessionCreateRequest;
 import com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode;
 import com.hiscope.evaluation.domain.evaluation.rule.repository.RelationshipDefinitionSetRepository;
+import com.hiscope.evaluation.domain.evaluation.session.dto.view.ParticipantSearchResult;
+import com.hiscope.evaluation.domain.evaluation.session.dto.view.SessionParticipantView;
 import com.hiscope.evaluation.domain.evaluation.session.service.EvaluationSessionService;
+import com.hiscope.evaluation.domain.evaluation.session.service.SessionParticipantService;
 import com.hiscope.evaluation.domain.evaluation.session.service.read.EvaluationSessionReadService;
 import com.hiscope.evaluation.domain.evaluation.template.service.EvaluationTemplateService;
 import com.hiscope.evaluation.domain.settings.service.OrganizationSettingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -26,6 +35,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
+@Slf4j
 @Controller
 @RequestMapping("/admin/evaluation/sessions")
 @RequiredArgsConstructor
@@ -37,6 +47,8 @@ public class EvaluationSessionController {
     private final AuditLogger auditLogger;
     private final OrganizationSettingService organizationSettingService;
     private final RelationshipDefinitionSetRepository definitionSetRepository;
+    private final SessionParticipantService participantService;
+    private final SimpleRelationshipWizardService wizardService;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
@@ -82,7 +94,7 @@ public class EvaluationSessionController {
         @RequestParam(defaultValue = "20") int size,
         @RequestParam(required = false) String keyword,
         @RequestParam(required = false) String status,
-        @RequestParam(required = false) String allowResubmit,
+        @RequestParam(required = false) String filterAllowResubmit,
         @RequestParam(required = false) String sortBy,
         @RequestParam(required = false) String sortDir,
         Model model, RedirectAttributes ra) {
@@ -91,7 +103,7 @@ public class EvaluationSessionController {
         int safeSize = Math.max(10, Math.min(size, 100));
         String normalizedKeyword = normalizeKeyword(keyword);
         String normalizedStatus = normalizeStatus(status);
-        Boolean normalizedAllowResubmit = parseBooleanStrict(allowResubmit);
+        Boolean normalizedAllowResubmit = parseBooleanStrict(filterAllowResubmit);
         String normalizedSortBy = normalizeSortBy(sortBy);
         String normalizedSortDir = normalizeSortDir(sortDir);
         if (br.hasErrors()) {
@@ -181,7 +193,7 @@ public class EvaluationSessionController {
                             "endDateFrom", before.getEndDate(),
                             "endDateTo", request.getEndDate(),
                             "allowResubmitFrom", before.isAllowResubmit(),
-                            "allowResubmitTo", request.isAllowResubmit(),
+                            "allowResubmitTo", Boolean.TRUE.equals(request.getAllowResubmit()),
                             "templateIdFrom", before.getTemplateId(),
                             "templateIdTo", request.getTemplateId()
                     ));
@@ -207,6 +219,24 @@ public class EvaluationSessionController {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/admin/evaluation/sessions";
+    }
+
+    @PostMapping("/{id}/rename")
+    public String rename(@PathVariable Long id,
+                         @RequestParam String name,
+                         RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            var before = sessionService.findById(orgId, id);
+            sessionService.rename(orgId, id, name);
+            auditLogger.success("EVAL_SESSION_RENAME", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("nameFrom", before.getName(), "nameTo", name.trim()));
+            ra.addFlashAttribute("successMessage", "세션명이 변경되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("EVAL_SESSION_RENAME", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/sessions/" + id;
     }
 
     @PostMapping("/{id}/clone")
@@ -245,6 +275,132 @@ public class EvaluationSessionController {
             auditLogger.fail("EVAL_SESSION_CLONE", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
             ra.addFlashAttribute("errorMessage", e.getMessage());
             return "redirect:/admin/evaluation/sessions/" + id;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // 참여자 관리
+    // ─────────────────────────────────────────────────────────
+
+    @GetMapping("/{id}/participants")
+    public String participants(@PathVariable Long id, Model model) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        var session = sessionService.findById(orgId, id);
+        boolean hasSnapshot = participantService.hasSnapshot(id);
+        List<SessionParticipantView> participants = hasSnapshot
+                ? participantService.getParticipants(id, orgId) : List.of();
+        model.addAttribute("evalSession", session);
+        model.addAttribute("hasSnapshot", hasSnapshot);
+        model.addAttribute("participants", participants);
+        model.addAttribute("activeCount", participants.stream().filter(SessionParticipantView::isActive).count());
+        model.addAttribute("removedCount", participants.stream().filter(SessionParticipantView::isRemoved).count());
+        return "admin/evaluation/sessions/participants";
+    }
+
+    @PostMapping("/{id}/participants/snapshot")
+    public String snapshotParticipants(@PathVariable Long id, RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        try {
+            participantService.snapshotParticipants(id, orgId);
+            auditLogger.success("PARTICIPANT_SNAPSHOT", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("action", "snapshot"));
+            ra.addFlashAttribute("successMessage", "참여자 명부가 확정되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("PARTICIPANT_SNAPSHOT", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/sessions/" + id + "/participants";
+    }
+
+    @PostMapping("/{id}/participants/add")
+    public String addParticipant(@PathVariable Long id,
+                                 @RequestParam Long employeeId,
+                                 @RequestParam String reason,
+                                 RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        Long accountId = SecurityUtils.getCurrentUser().getId();
+        try {
+            participantService.addParticipant(id, employeeId, reason, orgId, accountId);
+            auditLogger.success("PARTICIPANT_ADD", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("employeeId", employeeId, "reason", reason));
+            ra.addFlashAttribute("successMessage", "직원이 추가되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("PARTICIPANT_ADD", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/sessions/" + id + "/participants";
+    }
+
+    @PostMapping("/{id}/participants/remove")
+    public String removeParticipant(@PathVariable Long id,
+                                    @RequestParam Long employeeId,
+                                    @RequestParam String reason,
+                                    RedirectAttributes ra) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        Long accountId = SecurityUtils.getCurrentUser().getId();
+        try {
+            participantService.removeParticipant(id, employeeId, reason, orgId, accountId);
+            auditLogger.success("PARTICIPANT_REMOVE", "EVALUATION_SESSION", String.valueOf(id),
+                    AuditDetail.of("employeeId", employeeId, "reason", reason));
+            ra.addFlashAttribute("successMessage", "직원이 제외되었습니다.");
+        } catch (BusinessException e) {
+            auditLogger.fail("PARTICIPANT_REMOVE", "EVALUATION_SESSION", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/evaluation/sessions/" + id + "/participants";
+    }
+
+    @GetMapping("/{id}/participants/history")
+    public String participantHistory(@PathVariable Long id, Model model) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        var session = sessionService.findById(orgId, id);
+        model.addAttribute("evalSession", session);
+        model.addAttribute("history", participantService.getOverrideHistory(id, orgId));
+        return "admin/evaluation/sessions/participant-history";
+    }
+
+    @GetMapping("/{id}/participants/search")
+    @ResponseBody
+    public List<ParticipantSearchResult> searchParticipants(@PathVariable Long id,
+                                                             @RequestParam(defaultValue = "") String q) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        return participantService.searchEligibleEmployees(id, orgId, q);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // 간편 관계 설정 마법사
+    // ─────────────────────────────────────────────────────────
+
+    @GetMapping("/{id}/relationships/simple")
+    public String relationshipSimple(@PathVariable Long id, Model model) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        var session = sessionService.findById(orgId, id);
+        model.addAttribute("evalSession", session);
+        model.addAttribute("availablePositions", wizardService.getAvailablePositions(orgId));
+        return "admin/evaluation/sessions/relationship-simple";
+    }
+
+    @PostMapping("/{id}/relationships/simple/preview")
+    @ResponseBody
+    public java.util.Map<String, Object> previewSimpleRelationships(
+            @PathVariable Long id,
+            @RequestBody SimpleRelationshipWizardRequest request) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        return wizardService.preview(id, orgId, request);
+    }
+
+    @PostMapping("/{id}/relationships/simple/apply")
+    @ResponseBody
+    public java.util.Map<String, Object> applySimpleRelationships(
+            @PathVariable Long id,
+            @RequestBody SimpleRelationshipWizardRequest request) {
+        Long orgId = SecurityUtils.getCurrentOrgId();
+        Long accountId = SecurityUtils.getCurrentUser().getId();
+        try {
+            wizardService.apply(id, orgId, accountId, request);
+            return java.util.Map.of("success", true, "message", "간편 설정이 적용되었습니다.");
+        } catch (BusinessException e) {
+            return java.util.Map.of("success", false, "message", e.getMessage());
         }
     }
 

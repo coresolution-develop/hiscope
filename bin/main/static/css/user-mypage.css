@@ -12,14 +12,14 @@
 
 .summary-card {
   border: 1px solid var(--pe-border);
-  border-radius: 12px;
+  border-radius: 0.7rem;
   padding: .85rem;
-  background: #fff;
+  background: var(--pe-surface);
 }
 
 .summary-card .label {
   font-size: .75rem;
-  color: #607283;
+  color: var(--pe-muted);
 }
 
 .summary-card .value {
@@ -35,16 +35,16 @@
 }
 
 .ai-item {
-  border: 1px solid #d6e0eb;
-  border-radius: 10px;
-  background: #f8fbff;
+  border: 1px solid var(--pe-border);
+  border-radius: 0.7rem;
+  background: var(--pe-bg);
   padding: .75rem;
 }
 
 .ai-item h6 {
   font-size: .86rem;
   margin-bottom: .5rem;
-  color: #2f425a;
+  color: var(--pe-brand-800);
 }
 
 .ai-item ul {

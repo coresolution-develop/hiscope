@@ -186,7 +186,7 @@
                 <input type="hidden" name="size" th:value="${size}">
                 <input type="hidden" name="keyword" th:value="${keyword}">
                 <input type="hidden" name="status" th:value="${status}">
-                <input type="hidden" name="allowResubmit" th:value="${allowResubmit}">
+                <input type="hidden" name="filterAllowResubmit" th:value="${allowResubmit}">
                 <input type="hidden" name="sortBy" th:value="${sortBy}">
                 <input type="hidden" name="sortDir" th:value="${sortDir}">
                 <div class="modal-body">
@@ -254,7 +254,7 @@
                         </div>
                         <div class="col-md-4 d-flex align-items-end">
                             <div class="form-check mb-2">
-                                <input type="checkbox" th:field="*{allowResubmit}" class="form-check-input" id="allowResubmit">
+                                <input type="checkbox" class="form-check-input" id="allowResubmit" name="allowResubmit" value="true">
                                 <label class="form-check-label" for="allowResubmit">제출 후 수정 허용</label>
                             </div>
                         </div>

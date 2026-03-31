@@ -17,4 +17,6 @@ public interface RelationshipDefinitionSetRepository extends JpaRepository<Relat
     boolean existsByOrganizationIdAndName(Long organizationId, String name);
 
     Optional<RelationshipDefinitionSet> findByIdAndActiveTrue(Long id);
+
+    Optional<RelationshipDefinitionSet> findByOrganizationIdAndName(Long organizationId, String name);
 }

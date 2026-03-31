@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
+<head>
+    <title>참여자 변경 이력</title>
+</head>
+<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="content">
+
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a th:href="@{/admin/evaluation/sessions/{id}/participants(id=${evalSession.id})}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h4 class="mb-0 fw-bold" th:text="${evalSession.name + ' — 참여자 변경 이력'}">이력</h4>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">일시</th>
+                        <th>액션</th>
+                        <th>대상 직원 ID</th>
+                        <th>적용 정보</th>
+                        <th>사유</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${#lists.isEmpty(history)}">
+                        <td colspan="5" class="text-center text-muted py-4">변경 이력이 없습니다.</td>
+                    </tr>
+                    <tr th:each="h : ${history}">
+                        <td class="ps-3 text-muted small"
+                            th:text="${#temporals.format(h.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td>
+                            <span class="badge bg-primary" th:if="${h.action.name() == 'ADD'}">추가</span>
+                            <span class="badge bg-danger"  th:if="${h.action.name() == 'REMOVE'}">제외</span>
+                            <span class="badge bg-info"    th:if="${h.action.name() == 'UPDATE'}">수정</span>
+                        </td>
+                        <td class="text-muted small" th:text="${h.employeeId}"></td>
+                        <td class="small">
+                            <span th:if="${h.overrideName}" th:text="${h.overrideName}"></span>
+                            <span th:if="${h.overrideDepartmentName}"
+                                  th:text="${' / ' + h.overrideDepartmentName}" class="text-muted"></span>
+                            <span th:if="${h.overridePositionName}"
+                                  th:text="${' / ' + h.overridePositionName}" class="text-muted"></span>
+                            <span th:if="${h.overrideName == null}" class="text-muted">-</span>
+                        </td>
+                        <td class="small" th:text="${h.reason}"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</th:block>
+<th:block th:fragment="scripts"></th:block>
+</html>

@@ -1,46 +1,126 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: layout(~{::title}, ~{::content}, ~{::scripts}, ~{::headExtra})}">
 <head><title>나의 평가</title></head>
-<th:block th:fragment="headExtra"></th:block>
+<th:block th:fragment="headExtra">
+<style>
+/* 세션 그룹 헤더 */
+.session-group-header {
+    background: var(--pe-bg);
+    border-left: 4px solid var(--pe-brand-900);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+}
+.session-group-header .session-name {
+    font-weight: 700;
+    color: var(--pe-brand-900);
+    font-size: 1rem;
+}
+.session-group-header .session-period {
+    font-size: 0.82rem;
+    color: var(--pe-muted);
+    margin-top: 0.15rem;
+}
+/* 미완료 평가 버튼 (brand 네이비) */
+.btn-eval-pending {
+    background-color: var(--pe-brand-900);
+    border-color: var(--pe-brand-900);
+    color: #fff;
+}
+.btn-eval-pending:hover {
+    background-color: var(--pe-brand-800);
+    border-color: var(--pe-brand-800);
+    color: #fff;
+}
+/*
+  [기존 카드 레이아웃 — 보존]
+  .row.g-3 > .col-md-6.col-lg-4 > .card.h-100 구조:
+  미제출: card h-100 border-warning / 제출완료: card h-100
+  card-body: 상태 뱃지 + 세션ID + 피평가자ID + 제출일
+  card-footer: btn btn-warning/btn-outline-secondary btn-sm w-100
+*/
+</style>
+</th:block>
 <th:block th:fragment="content">
+
 <div class="mb-4">
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h4 class="fw-bold mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>나의 평가 목록</h4>
         <a href="/user/mypage" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-graph-up me-1"></i>마이페이지 분석 보기
         </a>
     </div>
 </div>
-<div class="row g-3">
-    <div th:each="a : ${assignments}" class="col-md-6 col-lg-4">
-        <div class="card h-100"
-             th:class="${a.status == 'PENDING'} ? 'card h-100 border-warning' : 'card h-100'">
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-2">
-                    <span th:text="${a.status == 'PENDING'} ? '미제출' : '제출완료'"
-                          th:class="${a.status == 'PENDING'} ? 'badge bg-warning text-dark' : 'badge bg-success'"></span>
-                    <small class="text-muted">세션 #<span th:text="${a.sessionId}"></span></small>
-                </div>
-                <p class="mb-1 small text-muted">피평가자 ID</p>
-                <h6 class="fw-bold" th:text="${a.evaluateeId}"></h6>
-                <p class="card-text small text-muted" th:if="${a.submittedAt != null}">
-                    제출일: <span th:text="${#temporals.format(a.submittedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                </p>
-            </div>
-            <div class="card-footer bg-transparent">
-                <a th:href="@{/user/evaluations/{id}(id=${a.id})}"
-                   th:text="${a.status == 'PENDING'} ? '평가 작성하기' : '내용 확인'"
-                   th:class="${a.status == 'PENDING'} ? 'btn btn-warning btn-sm w-100 fw-semibold' : 'btn btn-outline-secondary btn-sm w-100'"></a>
-            </div>
+
+<!-- 세션별 그룹 -->
+<div th:each="group : ${evaluationGroups}" class="mb-4">
+
+    <!-- 그룹 헤더 -->
+    <div class="session-group-header">
+        <div class="session-name">
+            <i class="bi bi-calendar3 me-1"></i>
+            <span th:text="${group.sessionName}">2024년 상반기 다면평가</span>
+        </div>
+        <div class="session-period" th:if="${group.startDate != null}">
+            평가기간:
+            <span th:text="${#temporals.format(group.startDate, 'yyyy.MM.dd')}">2024.01.01</span>
+            ~
+            <span th:if="${group.endDate != null}"
+                  th:text="${#temporals.format(group.endDate, 'yyyy.MM.dd')}">2024.06.30</span>
+            <span th:unless="${group.endDate != null}">미정</span>
+        </div>
+        <div class="session-period" th:unless="${group.startDate != null}">평가기간 미설정</div>
+    </div>
+
+    <!-- 평가 대상자 테이블 -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>피평가자</th>
+                    <th>부서</th>
+                    <th>평가 유형</th>
+                    <th>상태</th>
+                    <th>제출일</th>
+                    <th class="text-end">액션</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${group.items}">
+                    <td class="fw-semibold" th:text="${item.evaluateeName}">홍길동</td>
+                    <td class="text-muted small" th:text="${item.evaluateeDept ?: '-'}">간호부</td>
+                    <td>
+                        <span class="badge badge-brand" th:text="${item.relationType}">동료 평가</span>
+                    </td>
+                    <td>
+                        <span th:if="${item.submitted}" class="badge bg-success">제출완료</span>
+                        <span th:unless="${item.submitted}" class="badge bg-warning text-dark">미완료</span>
+                    </td>
+                    <td class="small text-muted">
+                        <span th:if="${item.submittedAt != null}"
+                              th:text="${#temporals.format(item.submittedAt, 'MM.dd HH:mm')}">01.15 09:30</span>
+                        <span th:unless="${item.submittedAt != null}">-</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/user/evaluations/{id}(id=${item.assignmentId})}"
+                           th:text="${item.submitted} ? '내용 확인' : '평가하기'"
+                           th:class="${item.submitted} ? 'btn btn-outline-secondary btn-sm' : 'btn btn-eval-pending btn-sm fw-semibold'"></a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
         </div>
     </div>
-    <div class="col-12" th:if="${#lists.isEmpty(assignments)}">
-        <div class="text-center text-muted py-5">
-            <i class="bi bi-inbox display-1 d-block mb-3"></i>
-            배정된 평가가 없습니다.
-        </div>
-    </div>
+
 </div>
+
+<!-- 배정된 평가 없음 -->
+<div th:if="${#lists.isEmpty(evaluationGroups)}" class="text-center text-muted py-5">
+    <i class="bi bi-inbox display-1 d-block mb-3"></i>
+    배정된 평가가 없습니다.
+</div>
+
 </th:block>
 <th:block th:fragment="scripts"></th:block>
 </html>

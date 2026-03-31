@@ -44,7 +44,7 @@ public class EvaluationResponseController {
     public String list(Model model) {
         Long employeeId = SecurityUtils.getCurrentEmployeeId();
         Long orgId = SecurityUtils.getCurrentOrgId();
-        model.addAttribute("assignments", responseService.findMyAssignments(employeeId, orgId));
+        model.addAttribute("evaluationGroups", responseService.findMyEvaluationGroups(employeeId, orgId));
         return "user/evaluations/list";
     }
 

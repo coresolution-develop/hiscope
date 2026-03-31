@@ -46,4 +46,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
               )
             """)
     List<Long> findIdsByOrganizationIdAndKeyword(@Param("orgId") Long orgId, @Param("keyword") String keyword);
+
+    @Query("SELECT DISTINCT e.position FROM Employee e WHERE e.organizationId = :orgId AND e.status = 'ACTIVE' AND e.position IS NOT NULL ORDER BY e.position ASC")
+    List<String> findDistinctPositionsByOrganizationId(@Param("orgId") Long orgId);
 }

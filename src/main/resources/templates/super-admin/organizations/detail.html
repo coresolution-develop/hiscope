@@ -132,6 +132,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="editAdminForm" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">이름 *</label>

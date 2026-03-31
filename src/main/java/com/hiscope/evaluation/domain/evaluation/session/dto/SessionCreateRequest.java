@@ -37,5 +37,5 @@ public class SessionCreateRequest {
 
     private Long relationshipDefinitionSetId;
 
-    private boolean allowResubmit = false;
+    private Boolean allowResubmit = false;
 }

@@ -4,5 +4,6 @@ public enum RelationshipMatcherType {
     EMPLOYEE,
     DEPARTMENT,
     JOB_TITLE,
+    POSITION,
     ATTRIBUTE
 }

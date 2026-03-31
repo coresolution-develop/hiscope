@@ -4,7 +4,11 @@ import com.hiscope.evaluation.common.audit.AuditLogger;
 import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.security.CustomUserDetailsService;
 import com.hiscope.evaluation.common.security.PasswordChangeEnforcementFilter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +19,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.InvalidCsrfTokenException;
 import org.springframework.security.web.csrf.MissingCsrfTokenException;
@@ -37,6 +45,23 @@ public class SecurityConfig {
     }
 
     @Bean
+    public OncePerRequestFilter csrfCookieFilter() {
+        return new OncePerRequestFilter() {
+            @Override
+            protected void doFilterInternal(
+                    HttpServletRequest request,
+                    HttpServletResponse response,
+                    FilterChain filterChain) throws ServletException, IOException {
+                CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+                if (csrfToken != null) {
+                    csrfToken.getToken(); // 강제 로딩 → CookieCsrfTokenRepository가 쿠키를 response에 씀
+                }
+                filterChain.doFilter(request, response);
+            }
+        };
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
@@ -51,6 +76,7 @@ public class SecurityConfig {
             )
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )
             .formLogin(form -> form
                 .loginPage("/login")
@@ -85,10 +111,11 @@ public class SecurityConfig {
                 .permitAll()
             )
             .sessionManagement(session -> session
-                .invalidSessionUrl("/login?expired=true")
+                .invalidSessionUrl("/login")
                 .sessionFixation(fixation -> fixation.migrateSession())
                 .maximumSessions(1)
                 .maxSessionsPreventsLogin(false)
+                .expiredUrl("/login?expired=true")
             )
             .headers(headers -> headers
                 .contentTypeOptions(Customizer.withDefaults())
@@ -111,8 +138,11 @@ public class SecurityConfig {
                     String code = "FORBIDDEN";
                     if (accessDeniedException instanceof MissingCsrfTokenException
                             || accessDeniedException instanceof InvalidCsrfTokenException) {
-                        message = "요청 보안 토큰이 유효하지 않습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.";
-                        code = "CSRF_TOKEN_INVALID";
+                        auditLogger.fail("AUTH_ACCESS_DENIED", "AUTH",
+                                request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : "anonymous",
+                                accessDeniedException.getMessage());
+                        response.sendRedirect("/login?expired=true");
+                        return;
                     }
                     auditLogger.fail("AUTH_ACCESS_DENIED", "AUTH",
                             request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : "anonymous",
@@ -124,6 +154,7 @@ public class SecurityConfig {
                 })
             );
 
+        http.addFilterAfter(csrfCookieFilter(), CsrfFilter.class);
         http.addFilterAfter(passwordChangeEnforcementFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

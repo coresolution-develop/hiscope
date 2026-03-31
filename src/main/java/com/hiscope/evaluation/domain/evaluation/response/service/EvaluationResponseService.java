@@ -3,14 +3,24 @@ package com.hiscope.evaluation.domain.evaluation.response.service;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.exception.ErrorCode;
 import com.hiscope.evaluation.common.security.SecurityUtils;
+import com.hiscope.evaluation.domain.department.entity.Department;
+import com.hiscope.evaluation.domain.department.repository.DepartmentRepository;
+import com.hiscope.evaluation.domain.employee.entity.Employee;
+import com.hiscope.evaluation.domain.employee.repository.EmployeeRepository;
 import com.hiscope.evaluation.domain.evaluation.assignment.entity.EvaluationAssignment;
 import com.hiscope.evaluation.domain.evaluation.assignment.repository.EvaluationAssignmentRepository;
+import com.hiscope.evaluation.domain.evaluation.relationship.entity.EvaluationRelationship;
+import com.hiscope.evaluation.domain.evaluation.relationship.repository.EvaluationRelationshipRepository;
 import com.hiscope.evaluation.domain.evaluation.response.dto.EvaluationSubmitRequest;
 import com.hiscope.evaluation.domain.evaluation.response.entity.EvaluationResponse;
 import com.hiscope.evaluation.domain.evaluation.response.entity.EvaluationResponseItem;
 import com.hiscope.evaluation.domain.evaluation.response.repository.EvaluationResponseItemRepository;
 import com.hiscope.evaluation.domain.evaluation.response.repository.EvaluationResponseRepository;
+import com.hiscope.evaluation.domain.evaluation.session.dto.view.MyEvaluationGroupView;
+import com.hiscope.evaluation.domain.evaluation.session.dto.view.MyEvaluationItemView;
 import com.hiscope.evaluation.domain.evaluation.session.entity.EvaluationSession;
+import com.hiscope.evaluation.domain.evaluation.session.entity.SessionEmployeeSnapshot;
+import com.hiscope.evaluation.domain.evaluation.session.repository.SessionEmployeeSnapshotRepository;
 import com.hiscope.evaluation.domain.evaluation.session.repository.EvaluationSessionRepository;
 import com.hiscope.evaluation.domain.evaluation.template.entity.EvaluationQuestion;
 import com.hiscope.evaluation.domain.evaluation.template.repository.EvaluationQuestionRepository;
@@ -18,8 +28,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,10 +42,111 @@ public class EvaluationResponseService {
     private final EvaluationResponseItemRepository itemRepository;
     private final EvaluationSessionRepository sessionRepository;
     private final EvaluationQuestionRepository questionRepository;
+    private final EmployeeRepository employeeRepository;
+    private final DepartmentRepository departmentRepository;
+    private final EvaluationRelationshipRepository relationshipRepository;
+    private final SessionEmployeeSnapshotRepository snapshotRepository;
 
     /** 현재 직원의 배정 목록 조회 */
     public List<EvaluationAssignment> findMyAssignments(Long employeeId, Long orgId) {
         return assignmentRepository.findByEvaluatorAndOrg(employeeId, orgId);
+    }
+
+    /**
+     * 세션 기준으로 그룹핑된 평가 목록 조회
+     * - 피평가자명/부서: Employee JOIN
+     * - 관계 유형 한글 변환: EvaluationRelationship JOIN
+     */
+    public List<MyEvaluationGroupView> findMyEvaluationGroups(Long employeeId, Long orgId) {
+        List<EvaluationAssignment> assignments = assignmentRepository.findByEvaluatorAndOrg(employeeId, orgId);
+        if (assignments.isEmpty()) return List.of();
+
+        // 세션 일괄 조회
+        Set<Long> sessionIds = assignments.stream()
+                .map(EvaluationAssignment::getSessionId).collect(Collectors.toSet());
+        Map<Long, EvaluationSession> sessionMap = sessionRepository.findAllById(sessionIds).stream()
+                .collect(Collectors.toMap(EvaluationSession::getId, s -> s));
+
+        // 직원 IN 쿼리 조회 (피평가자만, 스냅샷 없는 세션의 fallback용)
+        Set<Long> evaluateeIds = assignments.stream()
+                .map(EvaluationAssignment::getEvaluateeId).collect(Collectors.toSet());
+        Map<Long, Employee> employeeMap = employeeRepository.findAllById(evaluateeIds).stream()
+                .collect(Collectors.toMap(Employee::getId, e -> e));
+
+        // 부서 IN 쿼리 조회 (fallback용)
+        Set<Long> deptIds = employeeMap.values().stream()
+                .map(Employee::getDepartmentId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> deptNameMap = deptIds.isEmpty() ? Map.of() :
+                departmentRepository.findAllById(deptIds).stream()
+                        .collect(Collectors.toMap(Department::getId, Department::getName));
+
+        // 스냅샷 일괄 조회 (세션별 → 직원별 중첩 맵)
+        Map<Long, Map<Long, SessionEmployeeSnapshot>> snapshotsBySession = new HashMap<>();
+        for (Long sid : sessionIds) {
+            List<SessionEmployeeSnapshot> snaps = snapshotRepository.findAllBySessionId(sid);
+            if (!snaps.isEmpty()) {
+                snapshotsBySession.put(sid, snaps.stream()
+                        .collect(Collectors.toMap(SessionEmployeeSnapshot::getEmployeeId, s -> s)));
+            }
+        }
+
+        // 관계 일괄 조회
+        Set<Long> relIds = assignments.stream()
+                .map(EvaluationAssignment::getRelationshipId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> relTypeMap = relIds.isEmpty() ? Map.of() :
+                relationshipRepository.findAllById(relIds).stream()
+                        .collect(Collectors.toMap(EvaluationRelationship::getId, EvaluationRelationship::getRelationType));
+
+        // 아이템 생성
+        List<MyEvaluationItemView> items = assignments.stream().map(a -> {
+            // 1순위: 스냅샷 (세션 확정 시점 정보), 2순위: employees 원본 fallback
+            SessionEmployeeSnapshot snap = snapshotsBySession
+                    .getOrDefault(a.getSessionId(), Map.of())
+                    .get(a.getEvaluateeId());
+            Employee ev = employeeMap.get(a.getEvaluateeId());
+            String name = snap != null ? snap.getName()
+                    : (ev != null ? ev.getName() : "직원#" + a.getEvaluateeId());
+            String dept = snap != null ? snap.getDepartmentName()
+                    : (ev != null ? deptNameMap.get(ev.getDepartmentId()) : null);
+            String rel = translateRelationType(
+                    a.getRelationshipId() != null ? relTypeMap.get(a.getRelationshipId()) : null);
+            return new MyEvaluationItemView(
+                    a.getId(), a.getEvaluateeId(), name, dept, rel,
+                    a.getStatus(), a.getSubmittedAt(), a.getSessionId());
+        }).toList();
+
+        // 세션별 그룹핑 → 세션 시작일 내림차순 정렬
+        return items.stream()
+                .collect(Collectors.groupingBy(MyEvaluationItemView::sessionId,
+                        LinkedHashMap::new, Collectors.toList()))
+                .entrySet().stream()
+                .map(e -> {
+                    EvaluationSession s = sessionMap.get(e.getKey());
+                    return new MyEvaluationGroupView(
+                            e.getKey(),
+                            s != null ? s.getName() : "세션#" + e.getKey(),
+                            s != null ? s.getStartDate() : null,
+                            s != null ? s.getEndDate() : null,
+                            e.getValue());
+                })
+                .sorted(Comparator.comparing(
+                        g -> g.startDate() != null ? g.startDate() : LocalDate.MIN,
+                        Comparator.reverseOrder()))
+                .toList();
+    }
+
+    private String translateRelationType(String rawType) {
+        if (rawType == null) return "기타";
+        return switch (rawType) {
+            case "UPWARD"     -> "상향 평가";
+            case "DOWNWARD"   -> "하향 평가";
+            case "PEER"       -> "동료 평가";
+            case "CROSS_DEPT" -> "타부서 평가";
+            case "MANUAL"     -> "직접 지정";
+            default           -> "기타";
+        };
     }
 
     /** 특정 배정의 평가 폼 데이터 조회 */
