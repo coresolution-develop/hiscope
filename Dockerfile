@@ -19,8 +19,8 @@ WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
 
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+ENV JAVA_OPTS="-Xmx200m -Xms100m -XX:MaxMetaspaceSize=100m -Djava.security.egd=file:/dev/./urandom"
 
-EXPOSE 8099
+EXPOSE ${PORT:-8099}
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
