@@ -19,7 +19,7 @@ WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
 
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV JAVA_OPTS="-Xmx200m -Xms100m -XX:MaxMetaspaceSize=100m -Djava.security.egd=file:/dev/./urandom"
+ENV JAVA_OPTS="-Xmx180m -Xms64m -XX:MaxMetaspaceSize=160m -Djava.security.egd=file:/dev/./urandom"
 
 EXPOSE ${PORT:-8099}
 
