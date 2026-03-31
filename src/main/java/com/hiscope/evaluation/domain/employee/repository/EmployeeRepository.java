@@ -49,4 +49,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
 
     @Query("SELECT DISTINCT e.position FROM Employee e WHERE e.organizationId = :orgId AND e.status = 'ACTIVE' AND e.position IS NOT NULL ORDER BY e.position ASC")
     List<String> findDistinctPositionsByOrganizationId(@Param("orgId") Long orgId);
+
+    @Query("SELECT e FROM Employee e WHERE e.organizationId = :orgId AND e.departmentId IN :deptIds AND e.status = 'ACTIVE' ORDER BY e.name ASC")
+    List<Employee> findActiveByOrganizationIdAndDepartmentIdIn(@Param("orgId") Long orgId, @Param("deptIds") java.util.Collection<Long> deptIds);
 }

@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -34,6 +35,10 @@ public interface EvaluationRelationshipRepository extends JpaRepository<Evaluati
     List<Object[]> countByRelationType(@Param("sessionId") Long sessionId);
 
     void deleteBySessionId(Long sessionId);
+
+    @Modifying
+    @Query("DELETE FROM EvaluationRelationship r WHERE r.sessionId = :sessionId AND r.source = :source")
+    void deleteBySessionIdAndSource(@Param("sessionId") Long sessionId, @Param("source") String source);
 
     Optional<EvaluationRelationship> findByOrganizationIdAndId(Long organizationId, Long id);
 }

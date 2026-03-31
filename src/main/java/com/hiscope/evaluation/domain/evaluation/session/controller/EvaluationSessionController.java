@@ -4,8 +4,7 @@ import com.hiscope.evaluation.common.audit.AuditLogger;
 import com.hiscope.evaluation.common.audit.AuditDetail;
 import com.hiscope.evaluation.common.exception.BusinessException;
 import com.hiscope.evaluation.common.security.SecurityUtils;
-import com.hiscope.evaluation.domain.evaluation.rule.dto.SimpleRelationshipPreviewItem;
-import com.hiscope.evaluation.domain.evaluation.rule.dto.SimpleRelationshipWizardRequest;
+import com.hiscope.evaluation.domain.evaluation.rule.dto.SimpleRelationshipByDeptRequest;
 import com.hiscope.evaluation.domain.evaluation.rule.service.SimpleRelationshipWizardService;
 import com.hiscope.evaluation.domain.evaluation.session.dto.SessionCreateRequest;
 import com.hiscope.evaluation.domain.evaluation.rule.enums.RelationshipGenerationMode;
@@ -376,32 +375,39 @@ public class EvaluationSessionController {
         Long orgId = SecurityUtils.getCurrentOrgId();
         var session = sessionService.findById(orgId, id);
         model.addAttribute("evalSession", session);
-        model.addAttribute("availablePositions", wizardService.getAvailablePositions(orgId));
+        model.addAttribute("departments", wizardService.getAvailableDepartments(orgId));
+        model.addAttribute("wizardRequest", new SimpleRelationshipByDeptRequest());
         return "admin/evaluation/sessions/relationship-simple";
     }
 
     @PostMapping("/{id}/relationships/simple/preview")
-    @ResponseBody
-    public java.util.Map<String, Object> previewSimpleRelationships(
+    public String previewSimpleRelationships(
             @PathVariable Long id,
-            @RequestBody SimpleRelationshipWizardRequest request) {
+            @ModelAttribute("wizardRequest") SimpleRelationshipByDeptRequest request,
+            Model model) {
         Long orgId = SecurityUtils.getCurrentOrgId();
-        return wizardService.preview(id, orgId, request);
+        var session = sessionService.findById(orgId, id);
+        model.addAttribute("evalSession", session);
+        model.addAttribute("departments", wizardService.getAvailableDepartments(orgId));
+        model.addAttribute("wizardRequest", request);
+        model.addAttribute("previewResult", wizardService.preview(id, orgId, request));
+        return "admin/evaluation/sessions/relationship-simple";
     }
 
     @PostMapping("/{id}/relationships/simple/apply")
-    @ResponseBody
-    public java.util.Map<String, Object> applySimpleRelationships(
+    public String applySimpleRelationships(
             @PathVariable Long id,
-            @RequestBody SimpleRelationshipWizardRequest request) {
+            @ModelAttribute SimpleRelationshipByDeptRequest request,
+            RedirectAttributes ra) {
         Long orgId = SecurityUtils.getCurrentOrgId();
         Long accountId = SecurityUtils.getCurrentUser().getId();
         try {
             wizardService.apply(id, orgId, accountId, request);
-            return java.util.Map.of("success", true, "message", "간편 설정이 적용되었습니다.");
+            ra.addFlashAttribute("successMessage", "간편 설정이 적용되었습니다.");
         } catch (BusinessException e) {
-            return java.util.Map.of("success", false, "message", e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
         }
+        return "redirect:/admin/evaluation/sessions/" + id;
     }
 
     private String detailInternal(Long id,

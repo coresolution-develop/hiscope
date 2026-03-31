@@ -14,143 +14,221 @@
         </a>
         <div>
             <h4 class="mb-0 fw-bold" th:text="${evalSession.name + ' — 간편 관계 설정'}">간편 관계 설정</h4>
-            <small class="text-muted">직위 기반으로 평가 관계를 빠르게 설정합니다. 확정 후 세션 시작 시 자동으로 배정됩니다.</small>
+            <small class="text-muted">부서 기반으로 평가 관계를 빠르게 설정합니다. 확정 후 세션 시작 시 자동으로 배정됩니다.</small>
         </div>
     </div>
-
-    <!-- 알림 영역 -->
-    <div id="alertBox" class="d-none mb-3"></div>
 
     <div class="row g-4">
         <!-- 좌: 설정 패널 -->
         <div class="col-lg-5">
+            <form id="previewForm"
+                  th:action="@{/admin/evaluation/sessions/{id}/relationships/simple/preview(id=${evalSession.id})}"
+                  method="post">
 
-            <!-- 상향 평가 -->
-            <div class="card mb-3">
-                <div class="card-header d-flex align-items-center gap-2">
-                    <input class="form-check-input mt-0" type="checkbox" id="upwardEnabled">
-                    <label class="form-check-label fw-semibold mb-0" for="upwardEnabled">
-                        상향 평가 <span class="badge bg-primary ms-1">UPWARD</span>
-                    </label>
-                    <small class="text-muted ms-2">하위 직위 → 상위 직위 평가</small>
-                </div>
-                <div class="card-body" id="upwardBody" style="display:none;">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small">평가자 직위 (하위)</label>
-                        <div id="upwardEvaluatorPositions" class="position-check-group border rounded p-2" style="max-height:180px;overflow-y:auto;">
-                            <div th:each="pos : ${availablePositions}" class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       th:id="'upEval_' + ${pos}" th:value="${pos}"
-                                       name="upwardEvaluatorPositions">
-                                <label class="form-check-label small" th:for="'upEval_' + ${pos}" th:text="${pos}"></label>
-                            </div>
-                        </div>
+                <!-- 상향 평가 -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <input class="form-check-input mt-0" type="checkbox" id="upwardEnabled"
+                               name="upwardEnabled" value="true"
+                               th:checked="${wizardRequest != null and wizardRequest.upwardEnabled}"
+                               onchange="toggleSection('upward', this.checked)">
+                        <label class="form-check-label fw-semibold mb-0" for="upwardEnabled">
+                            상향 평가 <span class="badge bg-primary ms-1">UPWARD</span>
+                        </label>
+                        <small class="text-muted ms-2">부서원 → 부서장</small>
                     </div>
-                    <div>
-                        <label class="form-label fw-semibold small">피평가자 직위 (상위)</label>
-                        <div id="upwardEvaluateePositions" class="position-check-group border rounded p-2" style="max-height:180px;overflow-y:auto;">
-                            <div th:each="pos : ${availablePositions}" class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       th:id="'upEvatee_' + ${pos}" th:value="${pos}"
-                                       name="upwardEvaluateePositions">
-                                <label class="form-check-label small" th:for="'upEvatee_' + ${pos}" th:text="${pos}"></label>
-                            </div>
+                    <div class="card-body" id="upwardSection"
+                         th:style="${wizardRequest != null and wizardRequest.upwardEnabled} ? '' : 'display:none'">
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="selectAll('upwardDeptIds')">전체 선택</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="clearAll('upwardDeptIds')">전체 해제</button>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 동료 평가 -->
-            <div class="card mb-3">
-                <div class="card-header d-flex align-items-center gap-2">
-                    <input class="form-check-input mt-0" type="checkbox" id="peerEnabled">
-                    <label class="form-check-label fw-semibold mb-0" for="peerEnabled">
-                        동료 평가 <span class="badge bg-info ms-1">PEER</span>
-                    </label>
-                    <small class="text-muted ms-2">같은 직위 내 상호 평가</small>
-                </div>
-                <div class="card-body" id="peerBody" style="display:none;">
-                    <label class="form-label fw-semibold small">대상 직위</label>
-                    <div id="peerPositions" class="position-check-group border rounded p-2" style="max-height:180px;overflow-y:auto;">
-                        <div th:each="pos : ${availablePositions}" class="form-check">
-                            <input class="form-check-input" type="checkbox"
-                                   th:id="'peer_' + ${pos}" th:value="${pos}"
-                                   name="peerPositions">
-                            <label class="form-check-label small" th:for="'peer_' + ${pos}" th:text="${pos}"></label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 하향 평가 -->
-            <div class="card mb-3">
-                <div class="card-header d-flex align-items-center gap-2">
-                    <input class="form-check-input mt-0" type="checkbox" id="downwardEnabled">
-                    <label class="form-check-label fw-semibold mb-0" for="downwardEnabled">
-                        하향 평가 <span class="badge bg-warning text-dark ms-1">DOWNWARD</span>
-                    </label>
-                    <small class="text-muted ms-2">상위 직위 → 하위 직위 평가</small>
-                </div>
-                <div class="card-body" id="downwardBody" style="display:none;">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small">평가자 직위 (상위)</label>
-                        <div id="downwardEvaluatorPositions" class="position-check-group border rounded p-2" style="max-height:180px;overflow-y:auto;">
-                            <div th:each="pos : ${availablePositions}" class="form-check">
+                        <div class="border rounded p-2" style="max-height:200px;overflow-y:auto;">
+                            <div th:each="dept : ${departments}" class="form-check">
                                 <input class="form-check-input" type="checkbox"
-                                       th:id="'downEval_' + ${pos}" th:value="${pos}"
-                                       name="downwardEvaluatorPositions">
-                                <label class="form-check-label small" th:for="'downEval_' + ${pos}" th:text="${pos}"></label>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="form-label fw-semibold small">피평가자 직위 (하위)</label>
-                        <div id="downwardEvaluateePositions" class="position-check-group border rounded p-2" style="max-height:180px;overflow-y:auto;">
-                            <div th:each="pos : ${availablePositions}" class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       th:id="'downEvatee_' + ${pos}" th:value="${pos}"
-                                       name="downwardEvaluateePositions">
-                                <label class="form-check-label small" th:for="'downEvatee_' + ${pos}" th:text="${pos}"></label>
+                                       name="upwardDeptIds" th:value="${dept.id}"
+                                       th:id="${'upward_' + dept.id}"
+                                       th:checked="${wizardRequest != null and wizardRequest.upwardDeptIds != null and wizardRequest.upwardDeptIds.contains(dept.id)}">
+                                <label class="form-check-label small" th:for="${'upward_' + dept.id}">
+                                    <span th:text="${dept.name}">부서명</span>
+                                    <span class="text-muted" th:text="${'(' + dept.totalEmployees + '명)'}"></span>
+                                    <span class="badge bg-danger ms-1" th:if="${dept.leaderCount == 0}">부서장 없음</span>
+                                </label>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-primary" onclick="doPreview()">
+                <!-- 동료 평가 -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <input class="form-check-input mt-0" type="checkbox" id="peerEnabled"
+                               name="peerEnabled" value="true"
+                               th:checked="${wizardRequest != null and wizardRequest.peerEnabled}"
+                               onchange="toggleSection('peer', this.checked)">
+                        <label class="form-check-label fw-semibold mb-0" for="peerEnabled">
+                            동료 평가 <span class="badge bg-info ms-1">PEER</span>
+                        </label>
+                        <small class="text-muted ms-2">부서원끼리 상호 평가</small>
+                    </div>
+                    <div class="card-body" id="peerSection"
+                         th:style="${wizardRequest != null and wizardRequest.peerEnabled} ? '' : 'display:none'">
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="selectAll('peerDeptIds')">전체 선택</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="clearAll('peerDeptIds')">전체 해제</button>
+                        </div>
+                        <div class="border rounded p-2" style="max-height:200px;overflow-y:auto;">
+                            <div th:each="dept : ${departments}" class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="peerDeptIds" th:value="${dept.id}"
+                                       th:id="${'peer_' + dept.id}"
+                                       th:checked="${wizardRequest != null and wizardRequest.peerDeptIds != null and wizardRequest.peerDeptIds.contains(dept.id)}">
+                                <label class="form-check-label small" th:for="${'peer_' + dept.id}">
+                                    <span th:text="${dept.name}">부서명</span>
+                                    <span class="text-muted" th:text="${'(' + dept.totalEmployees + '명)'}"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 하향 평가 -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <input class="form-check-input mt-0" type="checkbox" id="downwardEnabled"
+                               name="downwardEnabled" value="true"
+                               th:checked="${wizardRequest != null and wizardRequest.downwardEnabled}"
+                               onchange="toggleSection('downward', this.checked)">
+                        <label class="form-check-label fw-semibold mb-0" for="downwardEnabled">
+                            하향 평가 <span class="badge bg-warning text-dark ms-1">DOWNWARD</span>
+                        </label>
+                        <small class="text-muted ms-2">부서장 → 부서원</small>
+                    </div>
+                    <div class="card-body" id="downwardSection"
+                         th:style="${wizardRequest != null and wizardRequest.downwardEnabled} ? '' : 'display:none'">
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="selectAll('downwardDeptIds')">전체 선택</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="clearAll('downwardDeptIds')">전체 해제</button>
+                        </div>
+                        <div class="border rounded p-2" style="max-height:200px;overflow-y:auto;">
+                            <div th:each="dept : ${departments}" class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="downwardDeptIds" th:value="${dept.id}"
+                                       th:id="${'downward_' + dept.id}"
+                                       th:checked="${wizardRequest != null and wizardRequest.downwardDeptIds != null and wizardRequest.downwardDeptIds.contains(dept.id)}">
+                                <label class="form-check-label small" th:for="${'downward_' + dept.id}">
+                                    <span th:text="${dept.name}">부서명</span>
+                                    <span class="text-muted" th:text="${'(' + dept.totalEmployees + '명)'}"></span>
+                                    <span class="badge bg-danger ms-1" th:if="${dept.leaderCount == 0}">부서장 없음</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-outline-primary">
                     <i class="bi bi-eye me-1"></i>미리보기
                 </button>
-                <button type="button" class="btn btn-success" id="applyBtn" onclick="doApply()" disabled>
-                    <i class="bi bi-check-circle me-1"></i>관계 설정 확정
-                </button>
-            </div>
+            </form>
         </div>
 
-        <!-- 우: 미리보기 패널 -->
+        <!-- 우: 미리보기 결과 -->
         <div class="col-lg-7">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span class="fw-semibold">미리보기 결과</span>
-                    <span id="previewCount" class="text-muted small"></span>
+                    <span class="text-muted small" th:if="${previewResult != null}"
+                          th:text="${previewResult.truncated} ? '총 ' + ${previewResult.totalCount} + '건 (300건만 표시)' : '총 ' + ${previewResult.totalCount} + '건'"></span>
                 </div>
-                <div class="card-body p-0">
-                    <div id="previewEmpty" class="text-center text-muted py-4 small">
-                        직위를 선택하고 [미리보기]를 눌러주세요.
+
+                <!-- 결과 없을 때 -->
+                <div th:if="${previewResult == null}" class="card-body">
+                    <div class="text-center text-muted py-3 small">부서를 선택하고 [미리보기]를 눌러주세요.</div>
+                </div>
+
+                <!-- 결과 있을 때 -->
+                <div th:if="${previewResult != null}">
+
+                    <!-- 경고 메시지 -->
+                    <div class="px-3 pt-3" th:if="${not #lists.isEmpty(previewResult.warnings)}">
+                        <div class="alert alert-warning py-2 small mb-2"
+                             th:each="w : ${previewResult.warnings}">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <span th:text="${w}"></span>
+                        </div>
                     </div>
-                    <div class="table-responsive" id="previewTableWrap" style="display:none;">
+
+                    <!-- 관계 없음 -->
+                    <div th:if="${#lists.isEmpty(previewResult.items)}" class="card-body">
+                        <div class="text-center text-muted py-3 small">생성되는 평가 관계가 없습니다.</div>
+                    </div>
+
+                    <!-- 결과 테이블 -->
+                    <div class="table-responsive" th:if="${not #lists.isEmpty(previewResult.items)}">
                         <table class="table table-sm table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
                                     <th class="ps-3">유형</th>
                                     <th>평가자</th>
-                                    <th>직위</th>
+                                    <th>직책</th>
                                     <th>피평가자</th>
-                                    <th>직위</th>
+                                    <th>직책</th>
                                 </tr>
                             </thead>
-                            <tbody id="previewTableBody"></tbody>
+                            <tbody>
+                                <tr th:each="item : ${previewResult.items}">
+                                    <td class="ps-3">
+                                        <span class="badge bg-primary" th:if="${item.relationType == 'UPWARD'}">상향</span>
+                                        <span class="badge bg-info" th:if="${item.relationType == 'PEER'}">동료</span>
+                                        <span class="badge bg-warning text-dark" th:if="${item.relationType == 'DOWNWARD'}">하향</span>
+                                    </td>
+                                    <td>
+                                        <span th:text="${item.evaluatorName}"></span>
+                                        <br><span class="text-muted small" th:text="${item.evaluatorDept}"></span>
+                                    </td>
+                                    <td class="small text-muted" th:text="${item.evaluatorJobTitle != null ? item.evaluatorJobTitle : '-'}"></td>
+                                    <td>
+                                        <span th:text="${item.evaluateeName}"></span>
+                                        <br><span class="text-muted small" th:text="${item.evaluateeDept}"></span>
+                                    </td>
+                                    <td class="small text-muted" th:text="${item.evaluateeJobTitle != null ? item.evaluateeJobTitle : '-'}"></td>
+                                </tr>
+                            </tbody>
                         </table>
+                    </div>
+
+                    <!-- 확정 폼 -->
+                    <div class="p-3 border-top" th:if="${not #lists.isEmpty(previewResult.items)}">
+                        <form th:action="@{/admin/evaluation/sessions/{id}/relationships/simple/apply(id=${evalSession.id})}"
+                              method="post">
+                            <!-- 선택값 유지: hidden inputs -->
+                            <input th:if="${wizardRequest.upwardEnabled}" type="hidden" name="upwardEnabled" value="true">
+                            <th:block th:if="${wizardRequest.upwardDeptIds != null}">
+                                <input th:each="deptId : ${wizardRequest.upwardDeptIds}"
+                                       type="hidden" name="upwardDeptIds" th:value="${deptId}">
+                            </th:block>
+                            <input th:if="${wizardRequest.peerEnabled}" type="hidden" name="peerEnabled" value="true">
+                            <th:block th:if="${wizardRequest.peerDeptIds != null}">
+                                <input th:each="deptId : ${wizardRequest.peerDeptIds}"
+                                       type="hidden" name="peerDeptIds" th:value="${deptId}">
+                            </th:block>
+                            <input th:if="${wizardRequest.downwardEnabled}" type="hidden" name="downwardEnabled" value="true">
+                            <th:block th:if="${wizardRequest.downwardDeptIds != null}">
+                                <input th:each="deptId : ${wizardRequest.downwardDeptIds}"
+                                       type="hidden" name="downwardDeptIds" th:value="${deptId}">
+                            </th:block>
+
+                            <button type="submit" class="btn btn-success"
+                                    onclick="return confirm('이 관계 설정을 확정하시겠습니까?\n이전 간편 설정이 있다면 덮어씁니다.')">
+                                <i class="bi bi-check-circle me-1"></i>관계 설정 확정
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -159,123 +237,20 @@
 
 </th:block>
 <th:block th:fragment="scripts">
-<script th:inline="javascript">
-    const SESSION_ID = /*[[${evalSession.id}]]*/ 0;
-
-    const TYPE_LABEL = { UPWARD: '상향', PEER: '동료', DOWNWARD: '하향' };
-    const TYPE_BADGE = {
-        UPWARD:   'bg-primary',
-        PEER:     'bg-info',
-        DOWNWARD: 'bg-warning text-dark'
-    };
-
-    // 체크박스 토글로 섹션 show/hide
-    ['upward', 'peer', 'downward'].forEach(type => {
-        document.getElementById(type + 'Enabled').addEventListener('change', function () {
-            document.getElementById(type + 'Body').style.display = this.checked ? '' : 'none';
-        });
-    });
-
-    function buildRequest() {
-        return {
-            upwardEnabled: document.getElementById('upwardEnabled').checked,
-            upwardEvaluatorPositions: getChecked('upwardEvaluatorPositions'),
-            upwardEvaluateePositions: getChecked('upwardEvaluateePositions'),
-            peerEnabled: document.getElementById('peerEnabled').checked,
-            peerPositions: getChecked('peerPositions'),
-            downwardEnabled: document.getElementById('downwardEnabled').checked,
-            downwardEvaluatorPositions: getChecked('downwardEvaluatorPositions'),
-            downwardEvaluateePositions: getChecked('downwardEvaluateePositions')
-        };
+<script>
+    function toggleSection(name, enabled) {
+        const section = document.getElementById(name + 'Section');
+        if (section) section.style.display = enabled ? '' : 'none';
     }
 
-    function getChecked(containerId) {
-        return Array.from(
-            document.getElementById(containerId)?.querySelectorAll('input[type=checkbox]:checked') || []
-        ).map(cb => cb.value);
+    function selectAll(name) {
+        document.querySelectorAll('input[name="' + name + '"]')
+            .forEach(cb => cb.checked = true);
     }
 
-    function doPreview() {
-        const req = buildRequest();
-        fetch(`/admin/evaluation/sessions/${SESSION_ID}/relationships/simple/preview`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req)
-        })
-        .then(r => r.json())
-        .then(data => renderPreview(data))
-        .catch(() => showAlert('danger', '미리보기 요청 중 오류가 발생했습니다.'));
-    }
-
-    function renderPreview(data) {
-        const items = data.items || [];
-        const total = data.totalCount || 0;
-        const countEl = document.getElementById('previewCount');
-        const empty = document.getElementById('previewEmpty');
-        const wrap = document.getElementById('previewTableWrap');
-        const tbody = document.getElementById('previewTableBody');
-        const applyBtn = document.getElementById('applyBtn');
-
-        if (items.length === 0) {
-            countEl.textContent = '0건';
-            empty.style.display = '';
-            wrap.style.display = 'none';
-            applyBtn.disabled = true;
-            return;
-        }
-
-        countEl.textContent = total > items.length
-            ? `총 ${total}건 (상위 ${items.length}건 표시)`
-            : `총 ${total}건`;
-
-        tbody.innerHTML = items.map(item => `
-            <tr>
-                <td class="ps-3">
-                    <span class="badge ${TYPE_BADGE[item.relationType] || 'bg-secondary'}">
-                        ${TYPE_LABEL[item.relationType] || item.relationType}
-                    </span>
-                </td>
-                <td>${escHtml(item.evaluatorName)}<br><span class="text-muted small">${escHtml(item.evaluatorDept || '-')}</span></td>
-                <td class="small text-muted">${escHtml(item.evaluatorPosition || '-')}</td>
-                <td>${escHtml(item.evaluateeName)}<br><span class="text-muted small">${escHtml(item.evaluateeDept || '-')}</span></td>
-                <td class="small text-muted">${escHtml(item.evaluateePosition || '-')}</td>
-            </tr>
-        `).join('');
-
-        empty.style.display = 'none';
-        wrap.style.display = '';
-        applyBtn.disabled = false;
-    }
-
-    function doApply() {
-        if (!confirm('선택한 설정으로 관계를 확정하시겠습니까?\n이전 간편 설정이 있다면 덮어씁니다.')) return;
-        const req = buildRequest();
-        fetch(`/admin/evaluation/sessions/${SESSION_ID}/relationships/simple/apply`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req)
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                showAlert('success', data.message + ' 세션 상세 페이지로 이동합니다.');
-                setTimeout(() => { location.href = `/admin/evaluation/sessions/${SESSION_ID}`; }, 1500);
-            } else {
-                showAlert('danger', data.message || '오류가 발생했습니다.');
-            }
-        })
-        .catch(() => showAlert('danger', '적용 요청 중 오류가 발생했습니다.'));
-    }
-
-    function showAlert(type, message) {
-        const box = document.getElementById('alertBox');
-        box.className = `alert alert-${type} alert-dismissible fade show`;
-        box.innerHTML = `${escHtml(message)}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-    }
-
-    function escHtml(str) {
-        if (!str) return '';
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    function clearAll(name) {
+        document.querySelectorAll('input[name="' + name + '"]')
+            .forEach(cb => cb.checked = false);
     }
 </script>
 </th:block>
