@@ -195,11 +195,17 @@
         ).map(cb => cb.value);
     }
 
+    function getCsrfToken() {
+        return document.cookie.split(';')
+            .find(c => c.trim().startsWith('XSRF-TOKEN='))
+            ?.split('=')[1] || '';
+    }
+
     function doPreview() {
         const req = buildRequest();
         fetch(`/admin/evaluation/sessions/${SESSION_ID}/relationships/simple/preview`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify(req)
         })
         .then(r => r.json())
@@ -252,7 +258,7 @@
         const req = buildRequest();
         fetch(`/admin/evaluation/sessions/${SESSION_ID}/relationships/simple/apply`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify(req)
         })
         .then(r => r.json())
