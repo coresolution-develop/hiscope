@@ -33,6 +33,7 @@
         <li><strong>이 화면에서 하는 일:</strong> 직원 수기 등록, 직원 엑셀 업로드(표준 템플릿/운영 파일 자동 인식), 업로드 전 미리보기 검증.</li>
         <li><strong>입력해야 하는 값:</strong> 사원번호, 이름, 부서코드 또는 부서명 중 최소 1개, 필요 시 상태/속성 컬럼.</li>
         <li><strong>자동 처리되는 값:</strong> `login_id=사번`, 상태 미입력 시 `ACTIVE`, boolean 값은 `Y/N`, `TRUE/FALSE`, `1/0` 정규화.</li>
+        <li><strong>삭제 정책:</strong> 직원 삭제는 데이터 정합성을 위해 물리 삭제 대신 비활성화(소프트 삭제)로 처리됩니다.</li>
         <li><strong>자주 발생하는 실수:</strong> 부서코드/부서명 불일치, 동일 이름 부서 중복(모호), 부서명 오탈자, boolean 오입력.</li>
         <li><strong>저장/실행 전 확인:</strong> 미리보기에서 파일 유형/적용 프로파일/누락 필수 컬럼/부서 매칭 결과를 먼저 확인한 뒤 업로드하세요.</li>
         <li><strong>부서 매칭 정책:</strong> 코드 우선, 코드 없으면 이름 매칭, 코드+이름 동시 입력 시 동일 부서 검증(불일치 시 오류).</li>
@@ -153,7 +154,7 @@
                 <td><span th:text="${emp.status == 'ACTIVE'} ? '재직' : (${emp.status == 'INACTIVE'} ? '비활성' : '휴직')"
                           th:class="${emp.status == 'ACTIVE'} ? 'badge bg-success' : 'badge bg-secondary'"></span></td>
                 <td>
-                    <form th:action="@{/admin/employees/{id}/deactivate(id=${emp.id})}" method="post" class="d-inline">
+                    <form th:action="@{/admin/employees/{id}/delete(id=${emp.id})}" method="post" class="d-inline">
                         <input type="hidden" name="page" th:value="${page}">
                         <input type="hidden" name="size" th:value="${size}">
                         <input type="hidden" name="keyword" th:value="${keyword}">
@@ -161,9 +162,9 @@
                         <input type="hidden" name="departmentId" th:value="${departmentId}">
                         <input type="hidden" name="sortBy" th:value="${sortBy}">
                         <input type="hidden" name="sortDir" th:value="${sortDir}">
-                        <button type="submit" class="btn btn-outline-warning btn-sm"
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
                                 th:if="${emp.status == 'ACTIVE'}"
-                                onclick="return confirm('비활성화하시겠습니까?')">비활성화</button>
+                                onclick="return confirm('직원을 삭제하시겠습니까? 삭제 시 비활성화 처리되며 기존 평가 데이터는 유지됩니다.')">삭제</button>
                     </form>
                     <form th:action="@{/admin/employees/{id}/activate(id=${emp.id})}" method="post" class="d-inline">
                         <input type="hidden" name="page" th:value="${page}">

@@ -167,6 +167,16 @@ public class EmployeeService {
                 emp.getJobTitle(), emp.getEmail(), "INACTIVE");
     }
 
+    /**
+     * 직원 삭제는 데이터 정합성을 위해 물리 삭제 대신 비활성화(소프트 삭제)로 처리한다.
+     * - 평가 관계/배정/응답 등 FK 참조 데이터는 보존
+     * - 로그인은 UserAccountRepository의 employee ACTIVE 조건으로 차단
+     */
+    @Transactional
+    public void delete(Long orgId, Long id) {
+        deactivate(orgId, id);
+    }
+
     @Transactional
     public void activate(Long orgId, Long id) {
         SecurityUtils.checkOrgAccess(orgId);

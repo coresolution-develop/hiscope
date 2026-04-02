@@ -202,6 +202,39 @@ public class EmployeeController {
         return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
     }
 
+    @PostMapping("/{id}/delete")
+    public String delete(@PathVariable Long id,
+                         @RequestParam(defaultValue = "0") int page,
+                         @RequestParam(defaultValue = "50") int size,
+                         @RequestParam(required = false) String keyword,
+                         @RequestParam(required = false) String status,
+                         @RequestParam(required = false) Long departmentId,
+                         @RequestParam(required = false) String sortBy,
+                         @RequestParam(required = false) String sortDir,
+                         RedirectAttributes ra) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.max(10, Math.min(size, 200));
+        String normalizedKeyword = normalizeKeyword(keyword);
+        String normalizedStatus = normalizeStatus(status);
+        Long normalizedDepartmentId = normalizeDepartmentId(departmentId);
+        String normalizedSortBy = normalizeSortBy(sortBy);
+        String normalizedSortDir = normalizeSortDir(sortDir);
+        try {
+            Long orgId = SecurityUtils.getCurrentOrgId();
+            employeeService.delete(orgId, id);
+            auditLogger.success("EMP_DELETE", "EMPLOYEE", String.valueOf(id),
+                    AuditDetail.of("deleteType", "SOFT", "status", "INACTIVE"));
+            ra.addFlashAttribute("successMessage", "직원이 삭제되었습니다. (비활성화 처리)");
+        } catch (BusinessException e) {
+            auditLogger.fail("EMP_DELETE", "EMPLOYEE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            auditLogger.fail("EMP_DELETE", "EMPLOYEE", String.valueOf(id), e.getMessage());
+            ra.addFlashAttribute("errorMessage", "직원 삭제 중 오류가 발생했습니다.");
+        }
+        return buildListRedirect(safePage, safeSize, normalizedKeyword, normalizedStatus, normalizedDepartmentId, normalizedSortBy, normalizedSortDir);
+    }
+
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id,
                            @RequestParam(defaultValue = "0") int page,

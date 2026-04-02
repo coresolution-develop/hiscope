@@ -644,6 +644,40 @@ class SecurityAndAdminScenarioIntegrationTest {
     }
 
     @Test
+    void 기관관리자_직원삭제는_소프트삭제로_처리된다() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+
+        Department department = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("삭제부서-" + suffix)
+                .code("DEL" + suffix.toUpperCase())
+                .active(true)
+                .build());
+
+        Employee employee = employeeRepository.save(Employee.builder()
+                .organizationId(1L)
+                .departmentId(department.getId())
+                .name("삭제대상-" + suffix)
+                .employeeNumber("EMP-DEL-" + suffix)
+                .position("사원")
+                .jobTitle("팀원")
+                .email("delete-" + suffix + "@test.local")
+                .status("ACTIVE")
+                .build());
+
+        mockMvc.perform(post("/admin/employees/{id}/delete", employee.getId())
+                        .session(adminSession)
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/admin/employees**"))
+                .andExpect(flash().attribute("successMessage", "직원이 삭제되었습니다. (비활성화 처리)"));
+
+        Employee after = employeeRepository.findByOrganizationIdAndId(1L, employee.getId()).orElseThrow();
+        assertThat(after.getStatus()).isEqualTo("INACTIVE");
+    }
+
+    @Test
     void 기관별_데이터_격리_테스트() throws Exception {
         MockHttpSession adminSession = loginAs("admin", "password123"); // orgId=1
         String suffix = uniqueSuffix();
