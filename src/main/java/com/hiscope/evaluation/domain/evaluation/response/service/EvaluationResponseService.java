@@ -49,6 +49,7 @@ public class EvaluationResponseService {
 
     /** 현재 직원의 배정 목록 조회 */
     public List<EvaluationAssignment> findMyAssignments(Long employeeId, Long orgId) {
+        SecurityUtils.checkOrgAccess(orgId);
         return assignmentRepository.findByEvaluatorAndOrg(employeeId, orgId);
     }
 
@@ -58,6 +59,7 @@ public class EvaluationResponseService {
      * - 관계 유형 한글 변환: EvaluationRelationship JOIN
      */
     public List<MyEvaluationGroupView> findMyEvaluationGroups(Long employeeId, Long orgId) {
+        SecurityUtils.checkOrgAccess(orgId);
         List<EvaluationAssignment> assignments = assignmentRepository.findByEvaluatorAndOrg(employeeId, orgId);
         if (assignments.isEmpty()) return List.of();
 
@@ -65,10 +67,22 @@ public class EvaluationResponseService {
         Set<Long> sessionIds = assignments.stream()
                 .map(EvaluationAssignment::getSessionId).collect(Collectors.toSet());
         Map<Long, EvaluationSession> sessionMap = sessionRepository.findAllById(sessionIds).stream()
+                .filter(s -> "IN_PROGRESS".equals(s.getStatus()))
                 .collect(Collectors.toMap(EvaluationSession::getId, s -> s));
+        if (sessionMap.isEmpty()) {
+            return List.of();
+        }
+
+        // 진행중(IN_PROGRESS) 세션에 속한 배정만 노출
+        List<EvaluationAssignment> inProgressAssignments = assignments.stream()
+                .filter(a -> sessionMap.containsKey(a.getSessionId()))
+                .toList();
+        if (inProgressAssignments.isEmpty()) {
+            return List.of();
+        }
 
         // 직원 IN 쿼리 조회 (피평가자만, 스냅샷 없는 세션의 fallback용)
-        Set<Long> evaluateeIds = assignments.stream()
+        Set<Long> evaluateeIds = inProgressAssignments.stream()
                 .map(EvaluationAssignment::getEvaluateeId).collect(Collectors.toSet());
         Map<Long, Employee> employeeMap = employeeRepository.findAllById(evaluateeIds).stream()
                 .collect(Collectors.toMap(Employee::getId, e -> e));
@@ -82,7 +96,7 @@ public class EvaluationResponseService {
 
         // 스냅샷 일괄 조회 (세션별 → 직원별 중첩 맵)
         Map<Long, Map<Long, SessionEmployeeSnapshot>> snapshotsBySession = new HashMap<>();
-        for (Long sid : sessionIds) {
+        for (Long sid : sessionMap.keySet()) {
             List<SessionEmployeeSnapshot> snaps = snapshotRepository.findAllBySessionId(sid);
             if (!snaps.isEmpty()) {
                 snapshotsBySession.put(sid, snaps.stream()
@@ -91,7 +105,7 @@ public class EvaluationResponseService {
         }
 
         // 관계 일괄 조회
-        Set<Long> relIds = assignments.stream()
+        Set<Long> relIds = inProgressAssignments.stream()
                 .map(EvaluationAssignment::getRelationshipId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -100,7 +114,7 @@ public class EvaluationResponseService {
                         .collect(Collectors.toMap(EvaluationRelationship::getId, EvaluationRelationship::getRelationType));
 
         // 아이템 생성
-        List<MyEvaluationItemView> items = assignments.stream().map(a -> {
+        List<MyEvaluationItemView> items = inProgressAssignments.stream().map(a -> {
             // 1순위: 스냅샷 (세션 확정 시점 정보), 2순위: employees 원본 fallback
             SessionEmployeeSnapshot snap = snapshotsBySession
                     .getOrDefault(a.getSessionId(), Map.of())
@@ -209,6 +223,9 @@ public class EvaluationResponseService {
         Map<Long, EvaluationQuestion> questionMap = questions.stream()
                 .collect(Collectors.toMap(EvaluationQuestion::getId, q -> q));
         validateAnswers(request, questionMap);
+        if (request.isFinalSubmit()) {
+            validateRequiredAnswersOnFinalSubmit(questions, request);
+        }
 
         // 기존 응답 조회
         EvaluationResponse response = responseRepository.findByAssignmentId(assignmentId).orElse(null);
@@ -282,6 +299,49 @@ public class EvaluationResponseService {
                             "유효하지 않은 문항 ID가 포함되어 있습니다.");
                 }
             }
+        }
+    }
+
+    private void validateRequiredAnswersOnFinalSubmit(List<EvaluationQuestion> questions,
+                                                      EvaluationSubmitRequest request) {
+        List<EvaluationQuestion> orderedQuestions = questions.stream()
+                .sorted(Comparator.comparingInt(EvaluationQuestion::getSortOrder)
+                        .thenComparing(EvaluationQuestion::getId))
+                .toList();
+
+        if (orderedQuestions.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Integer> numberByQuestionId = new HashMap<>();
+        for (int i = 0; i < orderedQuestions.size(); i++) {
+            numberByQuestionId.put(orderedQuestions.get(i).getId(), i + 1);
+        }
+
+        Map<Long, Integer> scores = request.getScores() != null ? request.getScores() : Map.of();
+        Map<Long, String> texts = request.getTexts() != null ? request.getTexts() : Map.of();
+        List<Integer> missingNumbers = orderedQuestions.stream()
+                .filter(q -> {
+                    if (q.isScale()) {
+                        return scores.get(q.getId()) == null;
+                    }
+                    if ("DESCRIPTIVE".equals(q.getQuestionType())) {
+                        String value = texts.get(q.getId());
+                        return value == null || value.isBlank();
+                    }
+                    return false;
+                })
+                .map(q -> numberByQuestionId.get(q.getId()))
+                .toList();
+
+        if (!missingNumbers.isEmpty()) {
+            String joined = missingNumbers.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(", "));
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR,
+                    "미응답 문항이 있습니다. 문항 번호: " + joined
+            );
         }
     }
 

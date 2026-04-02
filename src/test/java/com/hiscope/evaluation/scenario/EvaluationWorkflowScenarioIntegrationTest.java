@@ -428,6 +428,56 @@ class EvaluationWorkflowScenarioIntegrationTest {
     }
 
     @Test
+    void 나의평가_목록은_IN_PROGRESS_세션만_노출된다() throws Exception {
+        MockHttpSession userSession = loginAs("emp001", "password123");
+        String suffix = uniqueSuffix();
+
+        EvaluationTemplate template = createTemplate(1L, "목록필터템플릿-" + suffix);
+        EvaluationSession inProgressSession = createSession(1L, template.getId(), "목록-IN_PROGRESS-" + suffix, "IN_PROGRESS", false);
+        EvaluationSession pendingSession = createSession(1L, template.getId(), "목록-PENDING-" + suffix, "PENDING", false);
+        EvaluationSession closedSession = createSession(1L, template.getId(), "목록-CLOSED-" + suffix, "CLOSED", false);
+
+        Long evaluatorId = findEmployeeIdByNumber(1L, "E001");
+        Long evaluateeId = findEmployeeIdByNumber(1L, "E002");
+
+        assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(inProgressSession.getId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+        assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(pendingSession.getId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+        assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(closedSession.getId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+
+        String html = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/user/evaluations")
+                        .session(userSession))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(html).contains("목록-IN_PROGRESS-" + suffix);
+        assertThat(html).doesNotContain("목록-PENDING-" + suffix);
+        assertThat(html).doesNotContain("목록-CLOSED-" + suffix);
+    }
+
+    @Test
     void 일반사용자_평가_제출_테스트() throws Exception {
         EvaluationFixture fixture = createEvaluationFixture(false);
         MockHttpSession userSession = loginAs("emp001", "password123");
@@ -444,6 +494,147 @@ class EvaluationWorkflowScenarioIntegrationTest {
 
         EvaluationResponse response = responseRepository.findByAssignmentId(fixture.assignmentId()).orElseThrow();
         assertThat(response.isFinalSubmit()).isTrue();
+    }
+
+    @Test
+    void 최종제출시_미응답_문항이_있으면_차단된다() throws Exception {
+        MockHttpSession userSession = loginAs("emp001", "password123");
+        String suffix = uniqueSuffix();
+
+        EvaluationTemplate template = createTemplate(1L, "미응답차단템플릿-" + suffix);
+        EvaluationQuestion q1 = questionRepository.save(EvaluationQuestion.builder()
+                .templateId(template.getId())
+                .organizationId(1L)
+                .category("역량")
+                .content("미응답차단문항1-" + suffix)
+                .questionType("SCALE")
+                .maxScore(5)
+                .sortOrder(1)
+                .active(true)
+                .build());
+        questionRepository.save(EvaluationQuestion.builder()
+                .templateId(template.getId())
+                .organizationId(1L)
+                .category("역량")
+                .content("미응답차단문항2-" + suffix)
+                .questionType("SCALE")
+                .maxScore(5)
+                .sortOrder(2)
+                .active(true)
+                .build());
+        EvaluationSession session = createSession(1L, template.getId(), "미응답차단세션-" + suffix, "IN_PROGRESS", false);
+
+        Long evaluatorId = findEmployeeIdByNumber(1L, "E001");
+        Long evaluateeId = findEmployeeIdByNumber(1L, "E002");
+        EvaluationAssignment assignment = assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(session.getId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+
+        mockMvc.perform(post("/user/evaluations/{assignmentId}/submit", assignment.getId())
+                        .session(userSession)
+                        .with(csrf())
+                        .param("scores[" + q1.getId() + "]", "4"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/user/evaluations/" + assignment.getId()))
+                .andExpect(flash().attributeExists("errorMessage"));
+
+        EvaluationAssignment assignmentAfter = assignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(assignmentAfter.getStatus()).isEqualTo("PENDING");
+        assertThat(responseRepository.findByAssignmentId(assignment.getId())).isEmpty();
+    }
+
+    @Test
+    void 최종제출시_DESCRIPTIVE_미응답_문항이_있으면_차단된다() throws Exception {
+        MockHttpSession userSession = loginAs("emp001", "password123");
+        String suffix = uniqueSuffix();
+
+        EvaluationTemplate template = createTemplate(1L, "서술미응답차단템플릿-" + suffix);
+        EvaluationQuestion descriptiveQuestion = questionRepository.save(EvaluationQuestion.builder()
+                .templateId(template.getId())
+                .organizationId(1L)
+                .category("협업")
+                .content("서술미응답차단문항-" + suffix)
+                .questionType("DESCRIPTIVE")
+                .maxScore(null)
+                .sortOrder(1)
+                .active(true)
+                .build());
+        EvaluationSession session = createSession(1L, template.getId(), "서술미응답차단세션-" + suffix, "IN_PROGRESS", false);
+
+        Long evaluatorId = findEmployeeIdByNumber(1L, "E001");
+        Long evaluateeId = findEmployeeIdByNumber(1L, "E002");
+        EvaluationAssignment assignment = assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(session.getId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+
+        mockMvc.perform(post("/user/evaluations/{assignmentId}/submit", assignment.getId())
+                        .session(userSession)
+                        .with(csrf())
+                        .param("texts[" + descriptiveQuestion.getId() + "]", "   "))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/user/evaluations/" + assignment.getId()))
+                .andExpect(flash().attributeExists("errorMessage"));
+
+        EvaluationAssignment assignmentAfter = assignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(assignmentAfter.getStatus()).isEqualTo("PENDING");
+        assertThat(responseRepository.findByAssignmentId(assignment.getId())).isEmpty();
+    }
+
+    @Test
+    void 최종제출시_DESCRIPTIVE_응답이_있으면_제출된다() throws Exception {
+        MockHttpSession userSession = loginAs("emp001", "password123");
+        String suffix = uniqueSuffix();
+
+        EvaluationTemplate template = createTemplate(1L, "서술응답통과템플릿-" + suffix);
+        EvaluationQuestion descriptiveQuestion = questionRepository.save(EvaluationQuestion.builder()
+                .templateId(template.getId())
+                .organizationId(1L)
+                .category("협업")
+                .content("서술응답통과문항-" + suffix)
+                .questionType("DESCRIPTIVE")
+                .maxScore(null)
+                .sortOrder(1)
+                .active(true)
+                .build());
+        EvaluationSession session = createSession(1L, template.getId(), "서술응답통과세션-" + suffix, "IN_PROGRESS", false);
+
+        Long evaluatorId = findEmployeeIdByNumber(1L, "E001");
+        Long evaluateeId = findEmployeeIdByNumber(1L, "E002");
+        EvaluationAssignment assignment = assignmentRepository.save(EvaluationAssignment.builder()
+                .sessionId(session.getId())
+                .organizationId(1L)
+                .relationshipId(null)
+                .evaluatorId(evaluatorId)
+                .evaluateeId(evaluateeId)
+                .status("PENDING")
+                .build());
+
+        mockMvc.perform(post("/user/evaluations/{assignmentId}/submit", assignment.getId())
+                        .session(userSession)
+                        .with(csrf())
+                        .param("texts[" + descriptiveQuestion.getId() + "]", "서술형 답변입니다."))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/user/evaluations/" + assignment.getId() + "/complete"));
+
+        EvaluationAssignment assignmentAfter = assignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(assignmentAfter.getStatus()).isEqualTo("SUBMITTED");
+
+        EvaluationResponse response = responseRepository.findByAssignmentId(assignment.getId()).orElseThrow();
+        assertThat(response.isFinalSubmit()).isTrue();
+        EvaluationResponseItem item = responseItemRepository
+                .findByResponseIdAndQuestionId(response.getId(), descriptiveQuestion.getId())
+                .orElseThrow();
+        assertThat(item.getTextValue()).isEqualTo("서술형 답변입니다.");
     }
 
     @Test

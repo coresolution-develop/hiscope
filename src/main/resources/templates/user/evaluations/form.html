@@ -3,9 +3,13 @@
 <head><title>평가 작성</title></head>
 <th:block th:fragment="headExtra">
 <style>
-.question-card { border-left: 4px solid var(--pe-accent); }
+.category-card { border-left: 4px solid var(--pe-accent); }
 .score-btn { min-width: 44px; min-height: 44px; }
 .score-btn.active { background: var(--pe-brand-900); color: white; border-color: var(--pe-brand-900); }
+.question-card.border-danger {
+    border: 2px solid var(--color-danger) !important;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
+}
 @media (max-width: 575.98px) {
   .score-btn { min-width: 40px; min-height: 40px; padding: 0.25rem 0.4rem; }
   .eval-header { flex-direction: column; align-items: flex-start !important; }
@@ -33,16 +37,18 @@
     </div>
 </div>
 
-<form id="evalForm">
+<form id="evalForm" th:action="@{/user/evaluations/{id}/save(id=${assignment.id})}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
     <th:block th:each="category, cStat : ${groupedQuestions}">
-        <div class="card mb-3 question-card">
+        <div class="card mb-3 category-card">
             <div class="card-header fw-semibold bg-transparent">
                 <i class="bi bi-tag me-1 text-primary"></i>
                 <span th:text="${category.key}"></span>
             </div>
             <div class="card-body">
                 <th:block th:each="q, qStat : ${category.value}">
-                    <div class="mb-4">
+                    <div class="mb-4 p-2 rounded question-card"
+                         th:attr="data-question-id=${q.id},data-question-type=${q.questionType}">
                         <p class="fw-semibold mb-2">
                             <span th:text="${qStat.count}" class="text-muted me-2"></span>
                             <span th:text="${q.content}"></span>
@@ -101,14 +107,36 @@
 
 <!-- Hidden forms -->
 <form id="saveForm" th:action="@{/user/evaluations/{id}/save(id=${assignment.id})}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
     <div id="saveInputs"></div>
 </form>
 <form id="submitForm" th:action="@{/user/evaluations/{id}/submit(id=${assignment.id})}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
     <div id="submitInputs"></div>
 </form>
 </th:block>
 <th:block th:fragment="scripts">
 <script>
+function getQuestionCards() {
+    return Array.from(document.querySelectorAll('.question-card'));
+}
+
+function getScaleQuestionCards() {
+    return Array.from(document.querySelectorAll('.question-card[data-question-type="SCALE"]'));
+}
+
+function clearMissingQuestionHighlights() {
+    document.querySelectorAll('.question-card.border-danger').forEach(card => {
+        card.classList.remove('border-danger');
+    });
+}
+
+function assignQuestionNumbers() {
+    getQuestionCards().forEach((card, index) => {
+        card.dataset.questionNumber = String(index + 1);
+    });
+}
+
 function selectScore(btn) {
     const qid = btn.dataset.qid;
     const score = btn.dataset.score;
@@ -120,6 +148,10 @@ function selectScore(btn) {
     btn.classList.remove('btn-outline-secondary');
     btn.classList.add('btn-primary');
     document.getElementById('score_' + qid).value = score;
+    const card = btn.closest('.question-card');
+    if (card) {
+        card.classList.remove('border-danger');
+    }
 }
 
 function collectFormData() {
@@ -129,8 +161,8 @@ function collectFormData() {
         if (input.value) data[input.name] = input.value;
     });
     // texts
-    document.querySelectorAll('textarea[name^="texts["]').forEach(textarea => {
-        if (textarea.value.trim()) data[textarea.name] = textarea.value;
+    document.querySelectorAll('textarea[name^="texts["], input[type="text"][name^="texts["]').forEach(textInput => {
+        if (textInput.value.trim()) data[textInput.name] = textInput.value;
     });
     return data;
 }
@@ -151,11 +183,56 @@ function submitForm(isFinal) {
     document.getElementById(formId).submit();
 }
 
+function validateBeforeSubmit() {
+    clearMissingQuestionHighlights();
+    const unanswered = [];
+    let firstMissingCard = null;
+
+    getQuestionCards().forEach((card, index) => {
+        const questionType = card.dataset.questionType;
+        const questionNumber = Number(card.dataset.questionNumber || index + 1);
+        let isMissing = false;
+
+        if (questionType === 'SCALE') {
+            const qid = card.dataset.questionId;
+            const scoreInput = document.getElementById('score_' + qid);
+            isMissing = !scoreInput || !scoreInput.value;
+        } else if (questionType === 'DESCRIPTIVE') {
+            const textInput = card.querySelector('textarea[name^="texts["], input[type="text"][name^="texts["]');
+            isMissing = !textInput || !textInput.value || !textInput.value.trim();
+        }
+
+        if (isMissing) {
+            card.classList.add('border-danger');
+            unanswered.push(questionNumber);
+            if (!firstMissingCard) {
+                firstMissingCard = card;
+            }
+        }
+    });
+
+    const sortedUnanswered = [...new Set(unanswered)].sort((a, b) => a - b);
+    if (sortedUnanswered.length === 0) {
+        return true;
+    }
+
+    alert('미응답 문항이 있습니다. 문항 번호: ' + sortedUnanswered.join(', '));
+    if (firstMissingCard) {
+        firstMissingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return false;
+}
+
 function confirmSubmit() {
+    if (!validateBeforeSubmit()) {
+        return;
+    }
     if (confirm('최종 제출하면 수정이 불가할 수 있습니다. 제출하시겠습니까?')) {
         submitForm(true);
     }
 }
+
+assignQuestionNumbers();
 </script>
 </th:block>
 </html>
