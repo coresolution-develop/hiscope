@@ -75,7 +75,7 @@ public class EmployeeController {
                          @RequestParam(defaultValue = "0") int page,
                          @RequestParam(defaultValue = "50") int size,
                          @RequestParam(required = false) String keyword,
-                         @RequestParam(required = false) String status,
+                         @RequestParam(name = "listStatus", required = false) String listStatus,
                          @RequestParam(name = "listDepartmentId", required = false) Long listDepartmentId,
                          @RequestParam(required = false) String sortBy,
                          @RequestParam(required = false) String sortDir,
@@ -84,7 +84,7 @@ public class EmployeeController {
         int safePage = Math.max(page, 0);
         int safeSize = Math.max(10, Math.min(size, 200));
         String normalizedKeyword = normalizeKeyword(keyword);
-        String normalizedStatus = normalizeStatus(status);
+        String normalizedStatus = normalizeStatus(listStatus);
         Long normalizedDepartmentId = normalizeDepartmentId(listDepartmentId);
         String normalizedSortBy = normalizeSortBy(sortBy);
         String normalizedSortDir = normalizeSortDir(sortDir);

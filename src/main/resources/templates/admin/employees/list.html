@@ -175,8 +175,8 @@
                         <input type="hidden" name="sortBy" th:value="${sortBy}">
                         <input type="hidden" name="sortDir" th:value="${sortDir}">
                         <button type="submit" class="btn btn-outline-success btn-sm"
-                                th:if="${emp.status == 'INACTIVE'}"
-                                onclick="return confirm('재활성화하시겠습니까?')">재활성화</button>
+                                th:if="${emp.status != 'ACTIVE'}"
+                                onclick="return confirm('재직 상태로 전환하시겠습니까?')">재직 전환</button>
                     </form>
                     <form th:action="@{/admin/employees/{id}/reset-password(id=${emp.id})}" method="post" class="d-inline">
                         <input type="hidden" name="page" th:value="${page}">
@@ -229,7 +229,7 @@
                 <input type="hidden" name="page" th:value="${page}">
                 <input type="hidden" name="size" th:value="${size}">
                 <input type="hidden" name="keyword" th:value="${keyword}">
-                <input type="hidden" name="status" th:value="${status}">
+                <input type="hidden" name="listStatus" th:value="${status}">
                 <input type="hidden" name="listDepartmentId" th:value="${departmentId}">
                 <input type="hidden" name="sortBy" th:value="${sortBy}">
                 <input type="hidden" name="sortDir" th:value="${sortDir}">

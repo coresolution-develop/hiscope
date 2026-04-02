@@ -619,7 +619,7 @@ class SecurityAndAdminScenarioIntegrationTest {
                         .param("page", "0")
                         .param("size", "50")
                         .param("keyword", "")
-                        .param("status", "ACTIVE")
+                        .param("listStatus", "ACTIVE")
                         .param("listDepartmentId", "")
                         .param("sortBy", "name")
                         .param("sortDir", "asc")
@@ -631,7 +631,7 @@ class SecurityAndAdminScenarioIntegrationTest {
                         .param("email", "dept-" + suffix + "@test.local")
                         .param("loginId", "dept_user_" + suffix)
                         .param("password", "password123")
-                        .param("status", "ACTIVE"))
+                        .param("status", ""))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/admin/employees**"))
                 .andExpect(flash().attribute("successMessage", "직원이 등록되었습니다."));
@@ -641,6 +641,7 @@ class SecurityAndAdminScenarioIntegrationTest {
                 .findFirst()
                 .orElseThrow();
         assertThat(created.getDepartmentId()).isEqualTo(department.getId());
+        assertThat(created.getStatus()).isEqualTo("ACTIVE");
     }
 
     @Test

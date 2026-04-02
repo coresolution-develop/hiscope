@@ -112,6 +112,7 @@ public class EmployeeService {
         }
         validateLoginIdUnique(orgId, request.getLoginId());
         int minPasswordLength = organizationSettingService.resolvePasswordMinLength(orgId);
+        String resolvedStatus = StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : "ACTIVE";
 
         Employee emp = Employee.builder()
                 .organizationId(orgId)
@@ -121,7 +122,7 @@ public class EmployeeService {
                 .position(request.getPosition())
                 .jobTitle(request.getJobTitle())
                 .email(request.getEmail())
-                .status(request.getStatus())
+                .status(resolvedStatus)
                 .build();
         emp = employeeRepository.save(emp);
 
