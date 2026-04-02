@@ -601,6 +601,49 @@ class SecurityAndAdminScenarioIntegrationTest {
     }
 
     @Test
+    void 기관관리자_직원수동추가_부서선택값과_목록필터값이_충돌하지_않는다() throws Exception {
+        MockHttpSession adminSession = loginAs("admin", "password123");
+        String suffix = uniqueSuffix();
+
+        Department department = departmentRepository.save(Department.builder()
+                .organizationId(1L)
+                .name("부서충돌검증-" + suffix)
+                .code("DPT" + suffix.toUpperCase())
+                .active(true)
+                .build());
+
+        String employeeNumber = "EMP-DEPT-" + suffix;
+        mockMvc.perform(post("/admin/employees")
+                        .session(adminSession)
+                        .with(csrf())
+                        .param("page", "0")
+                        .param("size", "50")
+                        .param("keyword", "")
+                        .param("status", "ACTIVE")
+                        .param("listDepartmentId", "")
+                        .param("sortBy", "name")
+                        .param("sortDir", "asc")
+                        .param("name", "부서선택직원-" + suffix)
+                        .param("employeeNumber", employeeNumber)
+                        .param("departmentId", String.valueOf(department.getId()))
+                        .param("position", "사원")
+                        .param("jobTitle", "팀원")
+                        .param("email", "dept-" + suffix + "@test.local")
+                        .param("loginId", "dept_user_" + suffix)
+                        .param("password", "password123")
+                        .param("status", "ACTIVE"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/admin/employees**"))
+                .andExpect(flash().attribute("successMessage", "직원이 등록되었습니다."));
+
+        Employee created = employeeRepository.findByOrganizationIdOrderByNameAsc(1L).stream()
+                .filter(emp -> employeeNumber.equals(emp.getEmployeeNumber()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(created.getDepartmentId()).isEqualTo(department.getId());
+    }
+
+    @Test
     void 기관별_데이터_격리_테스트() throws Exception {
         MockHttpSession adminSession = loginAs("admin", "password123"); // orgId=1
         String suffix = uniqueSuffix();

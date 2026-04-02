@@ -76,7 +76,7 @@ public class EmployeeController {
                          @RequestParam(defaultValue = "50") int size,
                          @RequestParam(required = false) String keyword,
                          @RequestParam(required = false) String status,
-                         @RequestParam(required = false) Long departmentId,
+                         @RequestParam(name = "listDepartmentId", required = false) Long listDepartmentId,
                          @RequestParam(required = false) String sortBy,
                          @RequestParam(required = false) String sortDir,
                          Model model, RedirectAttributes ra) {
@@ -85,7 +85,7 @@ public class EmployeeController {
         int safeSize = Math.max(10, Math.min(size, 200));
         String normalizedKeyword = normalizeKeyword(keyword);
         String normalizedStatus = normalizeStatus(status);
-        Long normalizedDepartmentId = normalizeDepartmentId(departmentId);
+        Long normalizedDepartmentId = normalizeDepartmentId(listDepartmentId);
         String normalizedSortBy = normalizeSortBy(sortBy);
         String normalizedSortDir = normalizeSortDir(sortDir);
         if (bindingResult.hasErrors()) {
