@@ -46,7 +46,7 @@ GROUP BY s.id, s.name
 HAVING SUM(CASE WHEN a.resolved_question_group_code IS NULL THEN 1 ELSE 0 END) > 0
 ORDER BY s.id;
 
--- V-05: LEGACY 세션의 resolved_question_group_code non-null 탐지 (정책 위반 감지용)
+-- V-05: LEGACY 세션의 resolved_question_group_code non-null 분포(정보용)
 SELECT
     s.id AS session_id,
     s.name AS session_name,
@@ -116,3 +116,124 @@ SELECT setting_key, COUNT(*) AS row_count
 FROM organization_settings
 GROUP BY setting_key
 ORDER BY setting_key;
+
+-- V-11: grouped 템플릿 후보(동일 기관/동일 문항수의 참조 grouped 템플릿 존재)인데 question_group_code가 전부 NULL인 케이스
+WITH template_question_stats AS (
+    SELECT
+        q.organization_id,
+        q.template_id,
+        COUNT(*) AS total_questions,
+        COUNT(*) FILTER (
+            WHERE q.question_group_code IS NOT NULL
+              AND TRIM(q.question_group_code) <> ''
+        ) AS grouped_question_count
+    FROM evaluation_questions q
+    WHERE q.is_active = TRUE
+    GROUP BY q.organization_id, q.template_id
+),
+grouped_reference_shape AS (
+    SELECT
+        tqs.organization_id,
+        tqs.total_questions
+    FROM template_question_stats tqs
+    WHERE tqs.grouped_question_count > 0
+    GROUP BY tqs.organization_id, tqs.total_questions
+),
+grouped_template_candidates AS (
+    SELECT
+        tqs.organization_id,
+        tqs.template_id,
+        tqs.total_questions,
+        tqs.grouped_question_count
+    FROM template_question_stats tqs
+    JOIN grouped_reference_shape grs
+      ON grs.organization_id = tqs.organization_id
+     AND grs.total_questions = tqs.total_questions
+)
+SELECT
+    t.id AS template_id,
+    t.name AS template_name,
+    gtc.total_questions,
+    gtc.grouped_question_count
+FROM grouped_template_candidates gtc
+JOIN evaluation_templates t ON t.id = gtc.template_id
+WHERE gtc.grouped_question_count = 0
+ORDER BY t.id;
+
+-- V-12: grouped assignment 후보(템플릿이 grouped 후보)인데 resolved_question_group_code가 NULL/blank인 케이스
+WITH template_question_stats AS (
+    SELECT
+        q.organization_id,
+        q.template_id,
+        COUNT(*) AS total_questions,
+        COUNT(*) FILTER (
+            WHERE q.question_group_code IS NOT NULL
+              AND TRIM(q.question_group_code) <> ''
+        ) AS grouped_question_count
+    FROM evaluation_questions q
+    WHERE q.is_active = TRUE
+    GROUP BY q.organization_id, q.template_id
+),
+grouped_reference_shape AS (
+    SELECT
+        tqs.organization_id,
+        tqs.total_questions
+    FROM template_question_stats tqs
+    WHERE tqs.grouped_question_count > 0
+    GROUP BY tqs.organization_id, tqs.total_questions
+),
+grouped_template_candidates AS (
+    SELECT
+        tqs.template_id
+    FROM template_question_stats tqs
+    JOIN grouped_reference_shape grs
+      ON grs.organization_id = tqs.organization_id
+     AND grs.total_questions = tqs.total_questions
+)
+SELECT
+    s.id AS session_id,
+    s.name AS session_name,
+    s.template_id,
+    COUNT(*) AS assignment_count,
+    SUM(
+        CASE
+            WHEN a.resolved_question_group_code IS NULL
+              OR TRIM(a.resolved_question_group_code) = ''
+                THEN 1
+            ELSE 0
+        END
+    ) AS null_or_blank_group_count
+FROM evaluation_sessions s
+JOIN grouped_template_candidates gtc ON gtc.template_id = s.template_id
+JOIN evaluation_assignments a ON a.session_id = s.id
+GROUP BY s.id, s.name, s.template_id
+HAVING SUM(
+    CASE
+        WHEN a.resolved_question_group_code IS NULL
+          OR TRIM(a.resolved_question_group_code) = ''
+            THEN 1
+        ELSE 0
+    END
+) > 0
+ORDER BY s.id;
+
+-- V-13: response item 문항 group과 assignment group 불일치 케이스
+SELECT
+    er.id AS response_id,
+    ea.id AS assignment_id,
+    es.id AS session_id,
+    ea.resolved_question_group_code AS assignment_group_code,
+    eq.question_group_code AS question_group_code,
+    COUNT(*) AS item_count
+FROM evaluation_responses er
+JOIN evaluation_assignments ea ON ea.id = er.assignment_id
+JOIN evaluation_sessions es ON es.id = ea.session_id
+JOIN evaluation_response_items eri ON eri.response_id = er.id
+JOIN evaluation_questions eq ON eq.id = eri.question_id
+WHERE ea.resolved_question_group_code IS NOT NULL
+  AND TRIM(ea.resolved_question_group_code) <> ''
+  AND eq.question_group_code IS NOT NULL
+  AND TRIM(eq.question_group_code) <> ''
+  AND TRIM(ea.resolved_question_group_code) <> TRIM(eq.question_group_code)
+GROUP BY er.id, ea.id, es.id, ea.resolved_question_group_code, eq.question_group_code
+ORDER BY es.id, ea.id, er.id;

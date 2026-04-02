@@ -245,6 +245,42 @@ JOIN evaluation_templates nt
  AND nt.name = t.template_name
 ON CONFLICT (legacy_template_id) DO NOTHING;
 
+-- question_group_code 적재 기준:
+--   1) stg_legacy_questions.question_group_code
+--   2) (호환 fallback) question_type_raw 에 AA/AB/AC/AD/AE가 들어온 경우
+--   3) 동일 legacy_template 내 group code가 1개로 수렴하면 그 값으로 보정
+WITH legacy_template_single_group AS (
+    SELECT
+        src.legacy_template_id,
+        MIN(src.group_code) AS single_group_code
+    FROM (
+        SELECT
+            q.legacy_template_id,
+            UPPER(NULLIF(TRIM(q.question_group_code), '')) AS group_code
+        FROM migration_staging.stg_legacy_questions q
+
+        UNION ALL
+
+        SELECT
+            s.legacy_template_id,
+            UPPER(NULLIF(TRIM(a.resolved_question_group_code), '')) AS group_code
+        FROM migration_staging.stg_legacy_assignments a
+        JOIN migration_staging.stg_legacy_sessions s
+          ON s.legacy_session_id = a.legacy_session_id
+
+        UNION ALL
+
+        SELECT
+            s.legacy_template_id,
+            UPPER(NULLIF(TRIM(r.resolved_question_group_code), '')) AS group_code
+        FROM migration_staging.stg_legacy_relationships r
+        JOIN migration_staging.stg_legacy_sessions s
+          ON s.legacy_session_id = r.legacy_session_id
+    ) src
+    WHERE src.group_code IS NOT NULL
+    GROUP BY src.legacy_template_id
+    HAVING COUNT(DISTINCT src.group_code) = 1
+)
 INSERT INTO evaluation_questions (
     template_id, organization_id, category, content, question_type,
     max_score, sort_order, is_active, question_group_code
@@ -254,14 +290,27 @@ SELECT
     mo.new_org_id,
     q.category_text,
     q.question_content,
-    COALESCE(NULLIF(TRIM(q.question_type_raw), ''), 'SCALE'),
+    CASE
+        WHEN UPPER(NULLIF(TRIM(q.question_type_raw), '')) IN ('DESCRIPTIVE', 'TEXT', 'ESSAY')
+            THEN 'DESCRIPTIVE'
+        ELSE 'SCALE'
+    END,
     NULLIF(TRIM(q.max_score_raw), '')::integer,
     COALESCE(NULLIF(TRIM(q.sort_order_raw), '')::integer, 0),
     CASE WHEN LOWER(COALESCE(q.is_active_raw, 'true')) IN ('false', '0', 'n', 'no') THEN FALSE ELSE TRUE END,
-    NULLIF(TRIM(q.question_group_code), '')
+    COALESCE(
+        UPPER(NULLIF(TRIM(q.question_group_code), '')),
+        CASE
+            WHEN UPPER(NULLIF(TRIM(q.question_type_raw), '')) IN ('AA', 'AB', 'AC', 'AD', 'AE')
+                THEN UPPER(NULLIF(TRIM(q.question_type_raw), ''))
+            ELSE NULL
+        END,
+        ltsg.single_group_code
+    )
 FROM migration_staging.stg_legacy_questions q
 JOIN migration_staging.map_org mo ON mo.legacy_org_id = q.legacy_org_id
-JOIN migration_staging.map_template mt ON mt.legacy_template_id = q.legacy_template_id;
+JOIN migration_staging.map_template mt ON mt.legacy_template_id = q.legacy_template_id
+LEFT JOIN legacy_template_single_group ltsg ON ltsg.legacy_template_id = q.legacy_template_id;
 
 INSERT INTO migration_staging.map_question (legacy_question_id, new_question_id)
 SELECT q.legacy_question_id, nq.id
@@ -327,6 +376,19 @@ ON CONFLICT (legacy_session_id) DO NOTHING;
 -- ======================================================================
 -- 8) relationships / assignments
 -- ======================================================================
+-- resolved_question_group_code 적재 기준:
+--   1) assignment/relationship 원천 값 우선
+--   2) 템플릿 문항이 단일 group code인 경우 해당 값으로 보정
+WITH template_single_group AS (
+    SELECT
+        q.template_id,
+        MIN(q.question_group_code) AS single_group_code
+    FROM evaluation_questions q
+    WHERE q.question_group_code IS NOT NULL
+      AND TRIM(q.question_group_code) <> ''
+    GROUP BY q.template_id
+    HAVING COUNT(DISTINCT q.question_group_code) = 1
+)
 INSERT INTO evaluation_relationships (
     session_id, organization_id, evaluator_id, evaluatee_id,
     relation_type, source, is_active, resolved_question_group_code
@@ -339,16 +401,17 @@ SELECT
     COALESCE(NULLIF(TRIM(r.relation_type_raw), ''), 'MANUAL'),
     COALESCE(NULLIF(TRIM(r.source_raw), ''), 'ADMIN_ADDED'),
     CASE WHEN LOWER(COALESCE(r.is_active_raw, 'true')) IN ('false', '0', 'n', 'no') THEN FALSE ELSE TRUE END,
-    CASE
-        WHEN es.relationship_generation_mode = 'RULE_BASED' THEN NULLIF(TRIM(r.resolved_question_group_code), '')
-        ELSE NULL
-    END
+    COALESCE(
+        UPPER(NULLIF(TRIM(r.resolved_question_group_code), '')),
+        tsg.single_group_code
+    )
 FROM migration_staging.stg_legacy_relationships r
 JOIN migration_staging.map_org mo ON mo.legacy_org_id = r.legacy_org_id
 JOIN migration_staging.map_session ms ON ms.legacy_session_id = r.legacy_session_id
 JOIN migration_staging.map_employee mev ON mev.legacy_employee_id = r.legacy_evaluator_employee_id
 JOIN migration_staging.map_employee met ON met.legacy_employee_id = r.legacy_evaluatee_employee_id
 JOIN evaluation_sessions es ON es.id = ms.new_session_id
+LEFT JOIN template_single_group tsg ON tsg.template_id = es.template_id
 WHERE mev.new_employee_id <> met.new_employee_id
 ON CONFLICT (session_id, evaluator_id, evaluatee_id) DO NOTHING;
 
@@ -364,6 +427,16 @@ JOIN evaluation_relationships nr
  AND nr.evaluatee_id = met.new_employee_id
 ON CONFLICT (legacy_relationship_id) DO NOTHING;
 
+WITH template_single_group AS (
+    SELECT
+        q.template_id,
+        MIN(q.question_group_code) AS single_group_code
+    FROM evaluation_questions q
+    WHERE q.question_group_code IS NOT NULL
+      AND TRIM(q.question_group_code) <> ''
+    GROUP BY q.template_id
+    HAVING COUNT(DISTINCT q.question_group_code) = 1
+)
 INSERT INTO evaluation_assignments (
     session_id, organization_id, relationship_id,
     evaluator_id, evaluatee_id, status, submitted_at, resolved_question_group_code
@@ -376,11 +449,11 @@ SELECT
     met.new_employee_id,
     COALESCE(NULLIF(TRIM(a.assignment_status_raw), ''), 'PENDING'),
     NULLIF(TRIM(a.submitted_at_raw), '')::timestamp,
-    CASE
-        WHEN es.relationship_generation_mode = 'RULE_BASED'
-            THEN COALESCE(NULLIF(TRIM(a.resolved_question_group_code), ''), NULLIF(TRIM(r.resolved_question_group_code), ''))
-        ELSE NULL
-    END
+    COALESCE(
+        UPPER(NULLIF(TRIM(a.resolved_question_group_code), '')),
+        UPPER(NULLIF(TRIM(r.resolved_question_group_code), '')),
+        tsg.single_group_code
+    )
 FROM migration_staging.stg_legacy_assignments a
 JOIN migration_staging.map_org mo ON mo.legacy_org_id = a.legacy_org_id
 JOIN migration_staging.map_session ms ON ms.legacy_session_id = a.legacy_session_id
@@ -389,6 +462,7 @@ JOIN migration_staging.map_employee mev ON mev.legacy_employee_id = a.legacy_eva
 JOIN migration_staging.map_employee met ON met.legacy_employee_id = a.legacy_evaluatee_employee_id
 JOIN evaluation_sessions es ON es.id = ms.new_session_id
 LEFT JOIN migration_staging.stg_legacy_relationships r ON r.legacy_relationship_id = a.legacy_relationship_id
+LEFT JOIN template_single_group tsg ON tsg.template_id = es.template_id
 WHERE mev.new_employee_id <> met.new_employee_id;
 
 INSERT INTO migration_staging.map_assignment (legacy_assignment_id, new_assignment_id)
