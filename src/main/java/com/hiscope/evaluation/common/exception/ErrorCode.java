@@ -12,6 +12,7 @@ public enum ErrorCode {
     NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "입력 검증에 실패했습니다."),
     DUPLICATE(HttpStatus.CONFLICT, "이미 존재하는 데이터입니다."),
 
     // 기관
